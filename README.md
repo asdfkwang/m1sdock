@@ -42,3 +42,5 @@ BL808 c1 UART ── /dev/ttyUSB1 ──┘
 6. **Restart:** Run `bash utils/uart_logger_start.sh` again.
 7. **Repeat:** AI analyzes the new boot log automatically.
 
+bflb_iot_tool-ubuntu --chipname=bl808 --port=/dev/ttyUSB1 --baudrate=2000000 --addr=0xD2000 --firmware=M1s_BL808_Linux_SDK/out/whole_img_linux.bin --single
+

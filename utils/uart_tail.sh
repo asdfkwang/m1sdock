@@ -1,37 +1,36 @@
 #!/bin/bash
-# UART 로그 tail 스크립트 (AI가 로그 읽을 때 사용)
-# 기본값: c0 로그의 마지막 200줄 출력
+# UART log tail script (used by AI to read logs)
+# Default: print last 200 lines of c0 log
 #
-# 실행: bash utils/uart_tail.sh [c0|c1] [줄수]
-#
-# 예: bash utils/uart_tail.sh c0 200
-
-set -euo pipefail
+# Usage: bash utils/uart_tail.sh [c0|c1] [line count]
+# Example: bash utils/uart_tail.sh c0 200
 
 BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOGDIR="$BASEDIR/logs"
 
-TARGET="${1:-c0}"
+CH="${1:-c0}"
 LINES="${2:-200}"
 
-case "$TARGET" in
-    c0) LOGFILE="$LOGDIR/c0.log" ;;
-    c1) LOGFILE="$LOGDIR/c1.log" ;;
+case "$CH" in
+    c0) LOGFILE="$LOGDIR/c0.log"
+        PORT_DESC="/dev/ttyUSB0 log (AI read target)"
+        ;;
+    c1) LOGFILE="$LOGDIR/c1.log"
+        PORT_DESC="/dev/ttyUSB1 log (flash/control)"
+        ;;
     *)
-        echo "사용법: $0 [c0|c1] [줄수]"
-        echo "  c0: /dev/ttyUSB0 로그 (AI 읽기 대상)"
-        echo "  c1: /dev/ttyUSB1 로그 (플래싱/제어용)"
+        echo "Usage: $0 [c0|c1] [line count]"
+        echo "  c0: /dev/ttyUSB0 log (AI read target)"
+        echo "  c1: /dev/ttyUSB1 log (flash/control)"
         exit 1
         ;;
 esac
 
 if [ ! -f "$LOGFILE" ]; then
-    echo "[uart_tail] 로그 파일이 존재하지 않음: $LOGFILE"
-    echo "[uart_tail] 먼저 'bash utils/uart_logger_start.sh' 로 로거를 시작하세요."
+    echo "[uart_tail] log file does not exist: $LOGFILE"
+    echo "[uart_tail] start logger first with 'bash utils/uart_logger_start.sh'"
     exit 1
 fi
 
-echo "[uart_tail] 파일: $LOGFILE  (마지막 $LINES 줄)"
-echo "------------------------------------------------------------"
+echo "[uart_tail] file: $LOGFILE  (last $LINES lines)"
 tail -n "$LINES" "$LOGFILE"
-echo "------------------------------------------------------------"
