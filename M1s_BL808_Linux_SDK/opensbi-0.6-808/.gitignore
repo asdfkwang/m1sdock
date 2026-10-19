@@ -5,6 +5,7 @@
 
 #Build & install directories
 build/
+build-system-gcc/
 install/
 
 # Development friendly files

@@ -2,8 +2,19 @@
 
 ## Compiler
 
-The SDK is pinned to the vendor (Xuantie) toolchain that ships with the repo;
-the system gcc on this host is *not* used for `out/`:
+OpenSBI uses the system `riscv64-linux-gnu-gcc` and binutils from `PATH`.
+Install them on Debian with `sudo apt install gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu`,
+then run `./build.sh opensbi` from `M1s_BL808_Linux_SDK`.
+The build uses `rv64gc`, the existing `lp64` ABI, and
+`-Os -fno-asynchronous-unwind-tables -fno-unwind-tables`.
+Objects go into `opensbi-0.6-808/build-system-gcc` to keep them separate from
+vendor builds. Only a binary at most 48 KiB is copied to `out/fw_jump.bin`,
+matching the D0 loader's fixed `0xC000`-byte copy. GCC 14.2 produced 37,544 bytes
+with these options. The rebuilt whole image passed full readback SHA-256
+verification, and the user confirmed successful board boot on 2026-10-19.
+
+The kernel and low_load still use the bundled vendor (Xuantie) toolchains.
+For low_load:
 
 ```
 $ tc=/…/M1s_BL808_Linux_SDK/toolchain/elf_newlib_toolchain/bin/riscv64-unknown-elf-gcc

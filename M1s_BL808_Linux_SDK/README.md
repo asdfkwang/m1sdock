@@ -33,6 +33,13 @@ curl https://occ-oss-prod.oss-cn-hangzhou.aliyuncs.com/resource//1663142514282/X
 
 ## Compile
 
+OpenSBI uses the system RISC-V GCC toolchain (`riscv64-linux-gnu-gcc`),
+available on Debian via `sudo apt install gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu`.
+It builds `rv64gc` with size optimization and unwind tables disabled into
+`opensbi-0.6-808/build-system-gcc`. The build rejects binaries larger than the
+loader's 48 KiB copy limit before updating `out/fw_jump.bin`.
+The kernel and low_load continue to use the vendor toolchains above.
+
 Step by step
 
 ```bash

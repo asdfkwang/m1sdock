@@ -8,6 +8,8 @@ CMAKE=$SHELL_DIR/toolchain/cmake/bin/
 
 LINUX_CROSS_PREFIX=$SHELL_DIR/toolchain/linux_toolchain/bin/riscv64-unknown-linux-gnu-
 NEWLIB_ELF_CROSS_PREFIX=$SHELL_DIR/toolchain/elf_newlib_toolchain/bin/riscv64-unknown-elf-
+OPENSBI_CROSS_PREFIX=riscv64-linux-gnu-
+OPENSBI_BUILD_DIR=$SHELL_DIR/opensbi-0.6-808/build-system-gcc
 
 BUILD_TARGET=$1
 
@@ -42,8 +44,20 @@ build_opensbi(){
     echo " "
     echo "================== build opensbi ==================="
     cd $SHELL_DIR/opensbi-0.6-808
-    make PLATFORM=thead/c910 CROSS_COMPILE=$LINUX_CROSS_PREFIX -j$(nproc)
-    cp $SHELL_DIR/opensbi-0.6-808/build/platform/thead/c910/firmware/fw_jump.bin $OUT_DIR
+    make O="$OPENSBI_BUILD_DIR" PLATFORM=thead/c910 \
+        CROSS_COMPILE="$OPENSBI_CROSS_PREFIX" PLATFORM_RISCV_ISA=rv64gc \
+        'platform-cflags-y=-Os -fno-asynchronous-unwind-tables -fno-unwind-tables' \
+        -j"$(nproc)"
+
+    local firmware="$OPENSBI_BUILD_DIR/platform/thead/c910/firmware/fw_jump.bin"
+    local firmware_size
+    firmware_size=$(stat -c %s "$firmware")
+    # low_load/main.c copies only 0xC000 bytes of OpenSBI into RAM.
+    if (( firmware_size > 49152 )); then
+        echo "OpenSBI is $firmware_size bytes; the loader limit is 49152 bytes (48 KiB)." >&2
+        return 1
+    fi
+    cp "$firmware" "$OUT_DIR/fw_jump.bin"
 }
 
 build_dtb()
@@ -106,7 +120,7 @@ clean_all()
     echo " "
     echo "================== clean opensbi ==================="
     cd $SHELL_DIR/opensbi-0.6-808
-    make PLATFORM=thead/c910 CROSS_COMPILE=$LINUX_CROSS_PREFIX distclean
+    make O="$OPENSBI_BUILD_DIR" PLATFORM=thead/c910 CROSS_COMPILE="$OPENSBI_CROSS_PREFIX" distclean
 
 }
 
