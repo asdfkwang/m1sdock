@@ -12,3 +12,9 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# DevCube BL808 generated images (keep configuration files tracked)
+/BouffaloLabDevCube-v1/chips/bl808/img_create_iot/*.bin
+/BouffaloLabDevCube-v1/chips/bl808/img_create_iot/*.pack
+/BouffaloLabDevCube-v1/chips/bl808/img_create_mcu/*.bin
+/BouffaloLabDevCube-v1/chips/bl808/img_create_mcu/*.pack
