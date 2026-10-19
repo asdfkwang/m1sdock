@@ -1,0 +1,24 @@
+[param]
+interface_type = "uart"
+comport_uart = "/dev/ttyUSB1"
+speed_uart = "2000000"
+speed_jlink = "1000"
+chip_xtal = "Auto"
+ota = ""
+version = ""
+aes_key = ""
+aes_iv = ""
+addr = "0xD2000"
+
+[check_box]
+ckb_erase_all = "False"
+partition_download = true
+encrypt = false
+sign = false
+single_download = true
+
+[input_path]
+img_bin_input = "/home/kwang/Documents/m1sdock/M1s_BL808_Linux_SDK/out/whole_img_linux.bin"
+pt_table_bin_input = ""
+publickey = ""
+privatekey = ""
