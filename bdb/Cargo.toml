@@ -1,0 +1,11 @@
+[package]
+name = "bdb"
+version = "0.1.0"
+edition = "2024"
+
+# Intentionally dependency-free: bdb shells out to the repo's existing
+# python flash/readback tools, util-linux `flock`, tmux and coreutils.
+[dependencies]
+
+[profile.release]
+opt-level = 1

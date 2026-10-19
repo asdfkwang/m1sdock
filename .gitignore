@@ -1,2 +1,14 @@
-logs
+# Logs
+logs/
+*.log
 
+# Python venv
+tools/venv/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
