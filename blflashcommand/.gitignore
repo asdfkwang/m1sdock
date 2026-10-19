@@ -1,0 +1,15 @@
+# Python environments and caches
+venv/
+env/
+__pycache__/
+*.py[cod]
+pyvenv.cfg
+
+# Runtime output and generated firmware/configuration
+log/
+*.bin
+*.ini
+whole_img.pack
+
+# Static loader firmware shipped with the upstream tool
+!chips/**/eflash_loader/eflash_loader_*.bin
