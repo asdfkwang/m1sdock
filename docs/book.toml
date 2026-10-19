@@ -1,0 +1,6 @@
+[book]
+authors = ["Kwanghoon Son"]
+language = "en"
+multilingual = false
+src = "src"
+title = "bl808-linux"
