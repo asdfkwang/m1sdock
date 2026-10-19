@@ -10,6 +10,17 @@
 		reg = <0x0 0x50000000 0x0 0x04000000>;
 	};
 
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		opensbi@53f00000 {
+			reg = <0x0 0x53f00000 0x0 0x00100000>;
+			no-map;
+		};
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;

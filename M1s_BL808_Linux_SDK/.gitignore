@@ -1,4 +1,5 @@
 out/*
+!out/merge_7_5Mbin.py
 
 toolchain/*
 

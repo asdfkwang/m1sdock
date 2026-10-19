@@ -20,7 +20,8 @@
 |---|---|
 | JEDEC ID | `EF 40 18` (XTX) — 16 MB |
 | Capacity | `0x01000000` |
-| XIP window, d0-mapped | `0x58000000` = flash offset `0x000000` |
-| XIP window, m0-mapped | `0x58000000` as well (m0 identity = C906 XIP alias) |
-| Linux XIP base | `0x58000000` (DTB@`0x58080000`, OpenSBI@`0x58090000`, kernel@`0x580A0000` in d0 `linux_load()`) |
-| mtd physmap node | `0x58500000-0x588fffff` = flash offset `0x500000` (rootfs partition) |
+| XIP window, d0-mapped | `0x58000000` maps to D0 body at flash `0x052000` |
+| XIP window, m0-mapped | `0x58000000` maps to M0 body at flash `0x002000` |
+| Linux XIP sources | DTB@`0x58080000`, OpenSBI@`0x58800000`, kernel@`0x580A0000` in d0 `linux_load()` |
+| OpenSBI runtime | `0x53f00000..0x53ffffff`: 1 MiB PSRAM, reserved/no-map in DTB |
+| mtd physmap node | `0x58500000-0x588fffff`, starting at physical flash `0x552000`; rootfs partition size `0x280000` |

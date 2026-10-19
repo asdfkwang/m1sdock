@@ -5,13 +5,26 @@
 OpenSBI uses the system `riscv64-linux-gnu-gcc` and binutils from `PATH`.
 Install them on Debian with `sudo apt install gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu`,
 then run `./build.sh opensbi` from `M1s_BL808_Linux_SDK`.
-The build uses `rv64gc`, the existing `lp64` ABI, and
-`-Os -fno-asynchronous-unwind-tables -fno-unwind-tables`.
-Objects go into `opensbi-0.6-808/build-system-gcc` to keep them separate from
-vendor builds. Only a binary at most 48 KiB is copied to `out/fw_jump.bin`,
-matching the D0 loader's fixed `0xC000`-byte copy. GCC 14.2 produced 37,544 bytes
-with these options. The rebuilt whole image passed full readback SHA-256
-verification, and the user confirmed successful board boot on 2026-10-19.
+The vendor OpenSBI 0.6 build uses `rv64gc`, the existing `lp64` ABI and the
+Makefile's default `-O2`, without the previous size/unwind overrides.
+Objects go into `opensbi-0.6-808/build-system-gcc-1m` to separate this layout
+from previous builds. It links at `0x53f00000`, in the top 1 MiB of PSRAM.
+The DTB reserves this region with `no-map`, leaving 63 MiB for Linux.
+`utils/validate_vendor_opensbi.py` checks the binary size and ELF load bytes,
+entry, BSS and per-hart scratch/stack against the reservation before copying
+to `out/fw_jump.bin`. Hart count and stack size are read from the linked
+platform descriptor. OpenSBI 0.6 has no separately allocated firmware heap.
+
+`utils/merge_linux_image.py` reserves 1 MiB of flash for OpenSBI at whole-image
+offset `0x780000`, preserving kernel/header/rootfs offsets. It validates the
+DT reservation and rejects empty, oversized or overlapping inputs before
+overwriting the existing whole image. The old `out/merge_7_5Mbin.py` command
+forwards to this script. Install `device-tree-compiler` for `dtc` and `fdtget`.
+
+The user confirmed successful hardware boot with the new 1 MiB PSRAM layout
+and vendor OpenSBI built with system GCC at `-O2` on 2026-10-19.
+**Update regenerated low_load headers/bodies and the new whole image together;
+the old loader cannot boot firmware using the new addresses.**
 
 The kernel and low_load still use the bundled vendor (Xuantie) toolchains.
 For low_load:
@@ -47,7 +60,7 @@ flash-ready artifacts:
 | `out/low_load_bl808_m0.bin` | 38 116 | XIP body expected at flash 0x002000 |
 | `out/low_load_bl808_d0.bin` | 29 196 | XIP body expected at flash 0x052000 |
 | `out/low_load_bl808_{m0,d0}.elf` | ~2.5 MB | ELF32 (rv32) for m0, rv64-ish for d0 |
-| `out/whole_img_linux.bin` | 0x72E000 | DTB + OpenSBI + Image.lz4 + rootfs |
+| `out/whole_img_linux.bin` | 0x880000 | DTB + Image.lz4 + rootfs + 1 MiB OpenSBI slot |
 
 `out/examples/low_load/*` mirrors the same files (`.asm`, `.map` too).
 
@@ -58,6 +71,22 @@ cd bl_mcu_sdk_bl808
 make -j samples/low_load    # or your usual build invocation
 ```
 
-Because `make` handles `bootinfo` regeneration only inside the *iot/cube* path,
-remember to re-run the flash pipeline (Flashing → Path B) after any low_load
-rebuild — the bootinfo `img_len_cnt` is only recomputed by that path.
+For a matching set of artifacts from `M1s_BL808_Linux_SDK`:
+
+```bash
+./build.sh opensbi
+./build.sh dtb
+./build.sh low_load
+./build.sh whole_bin
+```
+
+Before flashing rebuilt low_load, regenerate its headers with
+`blflashcommand/venv/bin/python -B utils/prepare_blflash_low_load.py` from the
+repository root. This validates lengths, hashes, header CRCs and the entire
+flash configuration table, including JEDEC ID `ef4018`.
+
+Hardware-free regression checks for the layout and ELF validator:
+
+```bash
+python3 -B utils/test_linux_image.py
+```

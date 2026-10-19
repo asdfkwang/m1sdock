@@ -35,10 +35,20 @@ curl https://occ-oss-prod.oss-cn-hangzhou.aliyuncs.com/resource//1663142514282/X
 
 OpenSBI uses the system RISC-V GCC toolchain (`riscv64-linux-gnu-gcc`),
 available on Debian via `sudo apt install gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu`.
-It builds `rv64gc` with size optimization and unwind tables disabled into
-`opensbi-0.6-808/build-system-gcc`. The build rejects binaries larger than the
-loader's 48 KiB copy limit before updating `out/fw_jump.bin`.
+It builds the vendor OpenSBI 0.6 with `rv64gc`, `lp64` and the default `-O2` into
+`opensbi-0.6-808/build-system-gcc-1m`. OpenSBI runs at `0x53f00000` in a 1 MiB
+PSRAM region reserved with `no-map` in the DTB. The build checks the binary,
+ELF entry/load addresses, BSS and per-hart scratch/stack before updating
+`out/fw_jump.bin`. This vendor version has no separate firmware heap.
 The kernel and low_load continue to use the vendor toolchains above.
+
+The whole image has a dedicated 1 MiB OpenSBI slot at relative offset
+`0x780000` (D0 XIP `0x58800000`), outside the existing kernel and rootfs slots.
+`utils/merge_linux_image.py` at the repository root validates the DT reservation
+and all input sizes before producing the `0x880000`-byte whole image.
+`out/merge_7_5Mbin.py` remains a compatibility entry point for this merger.
+**Rebuild and update low_load (with regenerated boot headers), DTB and whole
+image together. The old 48 KiB loader is incompatible with this layout.**
 
 Step by step
 

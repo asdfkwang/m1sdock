@@ -49,17 +49,22 @@ C906 ← XIP @ 0x58052000 (flash 0x052000)
      "opensbi load done!"
 ```
 
-Steps performed by d0 `linux_load()` (see `main.c`):
+Current steps performed by d0 `linux_load()` and `main()` (see `main.c`).
+The user confirmed successful hardware boot with this PSRAM layout on
+2026-10-19. The example transcripts above and below are from the previous layout.
 
 | # | Action |
 |---|---|
 | 1 | Read kernel length from `*(uint32_t *)(0x580A0000-4)` |
 | 2 | `unlz4(0x580A0000 → 0x50000000, len)` |
 | 3 | `memcpy(0x58080000 → 0x51ff8000, 0x10000)` (DTB) |
-| 4 | `memcpy(0x58090000 → 0x3eff0000, 0xC000)` (OpenSBI) |
-| 5 | `csrw mcor, 0x30013` (invalid all DCACHE/ICACHE) |
+| 4 | `memcpy(0x58800000 → 0x53f00000, 0x100000)` (OpenSBI slot) |
+| 5 | Clean/invalidate D-cache, then `csrw mcor, 0x30013` |
 | 6 | Install PMP table (8 entries) |
-| 7 | `((void(*)(int,int))0x3eff0000)(0, 0x51ff8000)` — jump to OpenSBI |
+| 7 | `((void(*)(int,int))0x53f00000)(0, 0x51ff8000)` — jump to OpenSBI |
+
+The DTB marks `0x53f00000..0x53ffffff` as reserved/no-map so Linux does not
+allocate or directly map the OpenSBI firmware, BSS and scratch/stack area.
 
 ## 5. OpenSBI → Linux
 

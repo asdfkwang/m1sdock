@@ -9,7 +9,7 @@ CMAKE=$SHELL_DIR/toolchain/cmake/bin/
 LINUX_CROSS_PREFIX=$SHELL_DIR/toolchain/linux_toolchain/bin/riscv64-unknown-linux-gnu-
 NEWLIB_ELF_CROSS_PREFIX=$SHELL_DIR/toolchain/elf_newlib_toolchain/bin/riscv64-unknown-elf-
 OPENSBI_CROSS_PREFIX=riscv64-linux-gnu-
-OPENSBI_BUILD_DIR=$SHELL_DIR/opensbi-0.6-808/build-system-gcc
+OPENSBI_BUILD_DIR=$SHELL_DIR/opensbi-0.6-808/build-system-gcc-1m
 
 BUILD_TARGET=$1
 
@@ -46,17 +46,12 @@ build_opensbi(){
     cd $SHELL_DIR/opensbi-0.6-808
     make O="$OPENSBI_BUILD_DIR" PLATFORM=thead/c910 \
         CROSS_COMPILE="$OPENSBI_CROSS_PREFIX" PLATFORM_RISCV_ISA=rv64gc \
-        'platform-cflags-y=-Os -fno-asynchronous-unwind-tables -fno-unwind-tables' \
         -j"$(nproc)"
 
     local firmware="$OPENSBI_BUILD_DIR/platform/thead/c910/firmware/fw_jump.bin"
-    local firmware_size
-    firmware_size=$(stat -c %s "$firmware")
-    # low_load/main.c copies only 0xC000 bytes of OpenSBI into RAM.
-    if (( firmware_size > 49152 )); then
-        echo "OpenSBI is $firmware_size bytes; the loader limit is 49152 bytes (48 KiB)." >&2
-        return 1
-    fi
+    python3 -B "$SHELL_DIR/../utils/validate_vendor_opensbi.py" \
+        --elf "${firmware%.bin}.elf" --bin "$firmware" \
+        --cross-prefix "$OPENSBI_CROSS_PREFIX"
     cp "$firmware" "$OUT_DIR/fw_jump.bin"
 }
 
@@ -95,8 +90,7 @@ build_whole_bin()
 {
     echo " "
     echo "================ build whole bin =================="
-    cd $OUT_DIR
-    python3 merge_7_5Mbin.py
+    python3 -B "$SHELL_DIR/../utils/merge_linux_image.py" --out-dir "$OUT_DIR"
 }
 
 build_all()

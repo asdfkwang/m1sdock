@@ -37,8 +37,10 @@ extern void unlz4(const void *aSource, void *aDestination, uint32_t FileLen);
 #define VM_LINUX_SRC_ADDR 0x580A0000 // 4M 3980268
 #define VM_LINUX_DST_ADDR 0x50000000
 
-#define OPENSBI_SRC_ADDR 0x58090000 // 64K 0xc000
-#define OPENSBI_DST_ADDR 0x3eff0000
+/* Whole image +0x780000; reserve the top 1 MiB of PSRAM in the DTB. */
+#define OPENSBI_SRC_ADDR 0x58800000
+#define OPENSBI_DST_ADDR 0x53f00000
+#define OPENSBI_COPY_SIZE 0x100000
 
 #define DTB_SRC_ADDR 0x58080000 // 64k
 #define DTB_DST_ADDR 0x51ff8000
@@ -60,8 +62,8 @@ const pmp_config_entry_t pmp_entry_tab[8] = {
 
     [2] = {
         .entry_flag = ENTRY_FLAG_ADDR_NAPOT | ENTRY_FLAG_PERM_X | ENTRY_FLAG_PERM_W | ENTRY_FLAG_PERM_R,
-        .entry_pa_base = 0x3eff0000,
-        .entry_pa_length = 0x10000,
+        .entry_pa_base = OPENSBI_DST_ADDR,
+        .entry_pa_length = OPENSBI_COPY_SIZE,
     },
 
     [3] = {
@@ -128,7 +130,7 @@ void linux_load()
     /* Copy opensbi code */
     pSrc = (uint32_t *)OPENSBI_SRC_ADDR;
     pDest = (uint32_t *)OPENSBI_DST_ADDR;
-    memcpy((void *)pDest, (void *)pSrc, 0xc000);
+    memcpy((void *)pDest, (void *)pSrc, OPENSBI_COPY_SIZE);
     MSG("opensbi load done!\r\n");
 
     csi_dcache_clean_invalid();
