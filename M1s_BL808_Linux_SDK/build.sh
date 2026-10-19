@@ -55,6 +55,41 @@ build_opensbi(){
     cp "$firmware" "$OUT_DIR/fw_jump.bin"
 }
 
+build_opensbi_uart()
+{
+    echo "================ OpenSBI UART-only test ================"
+    local source_dir="$SHELL_DIR/../opensbi"
+    local build_dir="$source_dir/build/bl808-uart-test"
+    mkdir -p "$build_dir"
+    make -C "$source_dir" O="$build_dir" PLATFORM=generic \
+        PLATFORM_DEFCONFIG=bl808_uart_test_defconfig \
+        CROSS_COMPILE="$OPENSBI_CROSS_PREFIX" \
+        PLATFORM_RISCV_ISA=rv64gc PLATFORM_RISCV_ABI=lp64 \
+        FW_TEXT_START=0x53f00000 FW_JUMP_ADDR=0x50000000 \
+        FW_JUMP_FDT_ADDR=0x51ff8000 FW_DYNAMIC=n FW_PAYLOAD=n \
+        -j"$(nproc)"
+
+    local firmware="$build_dir/platform/generic/firmware/fw_jump.bin"
+    local elf="${firmware%.bin}.elf"
+    local size entry fw_end
+    size=$(stat -c %s "$firmware")
+    entry=$(LC_ALL=C "${OPENSBI_CROSS_PREFIX}readelf" -h "$elf" | awk '/Entry point address:/ {print $NF}')
+    fw_end=$("${OPENSBI_CROSS_PREFIX}nm" --defined-only "$elf" | awk '$3 == "_fw_end" {print "0x" $1}')
+    if [[ "$entry" != 0x53f00000 || -z "$fw_end" ]]; then
+        echo "UART test ELF has an unexpected entry or missing _fw_end" >&2
+        return 1
+    fi
+    # This test stops inside fw_platform_init(). Only fw_base.S's temporary
+    # stack (2 * SBI_SCRATCH_SIZE = 8192) is used; no heap/hart setup runs.
+    if (( size == 0 || size > 0x100000 || fw_end < 0x53f00000 || fw_end + 8192 > 0x54000000 )); then
+        echo "UART test image/temporary stack exceeds the 1 MiB reservation" >&2
+        return 1
+    fi
+    cp "$firmware" "$OUT_DIR/fw_jump_uart.bin"
+    echo "UART-only image: $OUT_DIR/fw_jump_uart.bin ($size bytes; entry=$entry)"
+    echo "Expected: OpenSBI BL808 UART OK, then WFI. No Linux boot."
+}
+
 build_dtb()
 {
     echo " "
@@ -120,7 +155,7 @@ clean_all()
 
 case "$BUILD_TARGET" in
 --help)
-    TARGET="kernel|kernel_config|opensbi|dtb|low_load|clean_load|whole_bin|all"
+    TARGET="kernel|kernel_config|opensbi|opensbi_uart|dtb|low_load|clean_load|whole_bin|all"
     USAGE="usage $0 [$TARGET]"
     echo $USAGE
     exit 0
@@ -134,6 +169,9 @@ kernel_config)
     ;;
 opensbi)
     build_opensbi
+    ;;
+opensbi_uart)
+    build_opensbi_uart
     ;;
 dtb)
     build_dtb

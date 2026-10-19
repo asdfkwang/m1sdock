@@ -52,6 +52,17 @@ image together. The old 48 KiB loader is incompatible with this layout.**
 
 Step by step
 
+For UART-only bring-up of the separate root `opensbi/` checkout, run
+`./build.sh opensbi_uart`. This creates **`out/fw_jump_uart.bin`** at entry
+`0x53f00000`, using the vendor UART setup at 2 Mbps. It prints
+`OpenSBI BL808 UART OK` and waits forever before SBI initialization or Linux
+handoff. The existing DTB is used without changes. This target does not replace
+`out/fw_jump.bin` or `out/whole_img_linux.bin` and does not flash the board.
+UART marker output was confirmed on the M1s Dock on 2026-10-19, after flashing
+`fw_jump_uart.bin` directly at physical offset `0x852000` with full readback
+SHA-256 verification. The UART test patches are maintained in the separate
+root `opensbi/` Git repository (UART checkpoint commit `6ef75f15`).
+
 ```bash
 ./build.sh --help
 ./build.sh opensbi
