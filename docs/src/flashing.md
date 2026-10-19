@@ -1,72 +1,74 @@
 # Flashing
 
-All wrappers run the vendored tools unmodified. Two paths are used in practice.
+Use the corrected local `blflashcommand` checkout, directly or through
+[bdb](bdb.md). The legacy `tools/bflb_*` paths are no longer the active backend.
 
-## Path A: single region (`bflb_iot_tool`)
-Fast path for one binary at one address.  Erases what it needs and verifies
-on-chip SHA-256 through the XIP path.
+## Required sequence
 
-```bash
-cd tools/bflb_iot_tool
-PYTHONPATH=$PWD python3 core/bflb_iot_tool.py \
-    --chipname bl808 --port /dev/ttyUSB1 --baudrate 2000000 \
-    --firmware <file.bin> --addr <0x…> --single
-```
+1. Stop both UART loggers: `bash utils/uart_logger_stop.sh`.
+2. Confirm no other process holds either UART.
+3. Enter flash mode: hold BOOT, press/release RESET, release BOOT.
+4. Program and verify.
+5. Start loggers, press RESET without BOOT, and inspect the new logs.
 
-Observed command outputs:
+Never ask for flash mode while loggers still hold UART ports. USB replug is not
+required: direct-command experiments succeeded before and after flashing without
+it, and a logger-induced handshake failure recovered by stopping loggers alone.
 
-```
-[22:04:00.064] flash write check
-[22:04:00.080] sha256 caled by host: 990de790…
-[22:04:00.112] flash xip readsha time cost(ms): 16.256
-[22:04:00.128] sha256 caled by dev:  990de790…
-[22:04:00.128] verification succeeded
-[22:04:00.128] program finished
-[22:04:00.229] [All Successful]
-```
-
-## Path B: full 4-file mirror of the DevCube GUI MCU page
-
-[`/tmp/opencode/flash_low_load.py`](file:///tmp/opencode/flash_low_load.py) calls
-`bflb_mcu_tool`'s library API (`get_value`, `create_img`, `program_img_thread`)
-to reproduce, in one run:
-
-| # | File | Target |
-|---|---|---|
-| 1 | `bootinfo_group0.bin` | `0x000000` (erase `0x0…0x663`) |
-| 2 | `bootinfo_group1.bin` | `0x001000` (erase `0x1000…0x115F`) |
-| 3 | `img_group0.bin` (m0, wrapped) | `0x002000` (erase `0x2000…0xB4EF`) |
-| 4 | `img_group1.bin` (d0, wrapped) | `0x52000` (erase `0x52000…0x5920F`) |
-
-Each step is followed by `xip mode verify` (SHA-256, host vs device).
-Ends with `[All Successful]`.
-
-## Flash-mode entry
-
-1. Close all serial handles (`tio`, loggers) that hold `ttyUSB1`.
-2. Hold **BOOT**, tap **RST**, release **BOOT** — `ttyUSB1` now speaks bootrom.
-3. Run the flasher. When it prints `[All Successful]`, tap **RST** to reboot.
-
-## Read-back (verification after the fact)
-
-[`/tmp/opencode/read_flash.py`](file:///tmp/opencode/read_flash.py) reads any
-region and drops `rd_<name>.bin` in `/tmp/opencode`. Requires flash mode.
-
-```python
-REGIONS = [
-    ("v_g0", "0x00000000", "0x00000700"),   # bootinfo group0
-    ("v_g1", "0x00001000", "0x00001200"),   # bootinfo group1
-    # add more here, e.g. kernel header @0x9FFFC
-]
-```
-
-## Serial logging
+## bdb
 
 ```bash
-utils/uart_logger_start.sh     # tmux sessions uart-c0 / uart-c1
-utils/uart_logger_stop.sh      # releases ttyUSB0 + ttyUSB1
-utils/uart_logger_status.sh
-tail -f logs/c0.log logs/c1.log
+cargo build --release --manifest-path bdb/Cargo.toml
+bdb/target/release/bdb log stop
+# Enter flash mode
+bdb/target/release/bdb flash low-load
+bdb/target/release/bdb log start
+# Press RESET without BOOT
+bdb/target/release/bdb log tail --lines 100
 ```
 
-Loggers must be **stopped** before flashing (they hold both ports).
+Flash commands stop any active loggers, check both ports, and proceed directly
+when the ports are free. On handshake failure, keep loggers off, check port
+holders and flash mode, then retry. No replug acknowledgement is required.
+Program and independent readback SHA verification share one UART connection.
+Loggers are restarted only when requested.
+
+## Direct blflashcommand
+
+From the repo root, prepare images without touching UART:
+
+```bash
+blflashcommand/venv/bin/python -B utils/prepare_blflash_low_load.py
+bash utils/uart_logger_stop.sh
+```
+
+After flash-mode entry:
+
+```bash
+cd blflashcommand
+venv/bin/python -u -B BLFlashCommand.py \
+  --interface=uart --port=/dev/ttyUSB1 --baudrate=2000000 --chipname=bl808 \
+  --config="$PWD/chips/bl808/img_create/flash_low_load.ini"
+```
+
+Check four `Verify success` lines and final `[All Success]`. Start loggers and
+press RESET without BOOT. This command updates only low-load images:
+
+| Group | CPU | Execution address | Bootinfo flash offset | Body flash offset |
+|---|---|---|---|---|
+| Group0 | M0 | `0x58000000` | `0x0` | `0x2000` |
+| Group1 | D0 | `0x58000000` | `0x1000` | `0x52000` |
+
+Inputs are `M1s_BL808_Linux_SDK/out/low_load_bl808_{m0,d0}.bin`, as prescribed
+by that SDK README. The Linux whole image is not included in this operation.
+The preparer checks all flash-table IDs, including the board's **ef4018**.
+The original decompiled table generator skipped first occurrences and produced
+images that passed write verification but did not boot.
+
+## Boot verification
+
+Read only the newest logger session in `logs/c0.log` and `logs/c1.log`.
+M0's `E907 start` / PSRAM message confirms M0 startup. OpenSBI, Linux kernel,
+rootfs mount, and init on c0 confirm D0 boot progress. Report `Linux login:` only
+when that prompt actually appears. Stored-byte verification alone does not
+prove a working boot.

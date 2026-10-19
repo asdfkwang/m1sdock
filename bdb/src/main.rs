@@ -67,6 +67,7 @@ fn parse(argv: &[String]) -> (Opts, Vec<String>) {
     while let Some(a) = it.next() {
         match a.as_str() {
             "--json" => o.json = true,
+            "--usb-replugged" => {}, // Legacy option: accepted but no longer required.
             "--timeout" => {
                 if let Some(v) = it.next() {
                     o.timeout = v.parse().unwrap_or(o.timeout);
@@ -107,9 +108,10 @@ Trust model:
   - exclusive commands hold a kernel flock over the port; crash releases it
   - every flash is journaled BEFORE any write; a dead owner is detected via
     /proc and `bdb recover` replays the transaction to converge the board
-  - success is judged only by on-chip readback SHA equality; tool output
-    claiming success is never trusted
-  - flash-mode entry (hold BOOT, tap RESET) and USB replug are human steps:
+  - blflashcommand writes and reads back over one UART connection;
+    success requires readback SHA equality, not a success banner
+  - loggers stop and ports must be free before flashing or readback
+  - flash-mode entry (hold BOOT, tap RESET) is a human step:
     bdb prints NEED-USER lines instead of pretending they happened
 
 Exit codes: 0 ok | 1 judged failure | 2 contention | 3 NEED-USER | 4 usage
@@ -136,6 +138,10 @@ fn main() -> ExitCode {
         print_help();
         return ExitCode::from(4);
     }
+    if let Err(e) = ctx.ensure_dirs() {
+        eel!("[bdb] error: cannot create runtime directories: {e}");
+        return ExitCode::from(1);
+    }
     let exclusive = match rest[0].as_str() {
         "flash" | "readback" | "verify" | "recover" => true,
         "log" => rest.len() >= 2 && matches!(rest[1].as_str(), "start" | "stop"),
@@ -144,7 +150,7 @@ fn main() -> ExitCode {
     if !exclusive {
         return code(dispatch(&ctx, &mut opts, &rest));
     }
-    let ec = lock::exec_held(&ctx, &rest);
+    let ec = lock::exec_held(&ctx, &argv);
     if ec == ExitCode::from(lock::BUSY_SENTINEL as u8) {
         let _ = lock::report_contention(&ctx);
         return ExitCode::from(2);

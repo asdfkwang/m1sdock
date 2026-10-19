@@ -42,5 +42,18 @@ BL808 c1 UART ── /dev/ttyUSB1 ──┘
 6. **Restart:** Run `bash utils/uart_logger_start.sh` again.
 7. **Repeat:** AI analyzes the new boot log automatically.
 
-tools/venv/bin/python3 tools/bflb_iot_tool/__main__.py --chipname=bl808 --port=/dev/ttyUSB1 --baudrate=2000000 --addr=0xD2000 --firmware=M1s_BL808_Linux_SDK/out/whole_img_linux.bin --single
+## Flashing with bdb
 
+Use the corrected `blflashcommand` backend through [bdb](bdb/README.md).
+Stop loggers and release both UARTs **before** asking for flash mode.
+USB replug is not required before or after flashing.
+
+```bash
+cargo build --release --manifest-path bdb/Cargo.toml
+bdb/target/release/bdb log stop
+# Enter flash mode
+bdb/target/release/bdb flash low-load
+bdb/target/release/bdb log start
+# Press RESET without BOOT, then inspect logs
+bdb/target/release/bdb log tail --lines 100
+```

@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Canonical process exit codes for every bdb command.
 /// 0 ok; 1 judging failure (verify/program/timeout); 2 contention;
-/// 3 NEED-USER (manual step required: buttons/replug/install); 4 usage error.
+/// 3 NEED-USER (manual step required: buttons/install); 4 usage error.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ECode {
     Ok,
@@ -90,6 +90,7 @@ pub fn ctx_from(o: &Opts) -> Ctx {    // Build-time baked repo root: <repo>/bdb 
             }
         }
     };
+    let repo = repo.canonicalize().unwrap_or(repo);
     Ctx {
         repo,
         run_dir: PathBuf::from(&base).join("bdb"),
@@ -112,16 +113,13 @@ pub fn ctx_from(o: &Opts) -> Ctx {    // Build-time baked repo root: <repo>/bdb 
 
 impl Ctx {
     pub fn venv_python(&self) -> PathBuf {
-        self.repo.join("tools/venv/bin/python3")
+        self.flash_tool().join("venv/bin/python")
     }
-    pub fn mcu_tool(&self) -> PathBuf {
-        self.repo.join("tools/bflb_mcu_tool")
-    }
-    pub fn iot_tool(&self) -> PathBuf {
-        self.repo.join("tools/bflb_iot_tool")
+    pub fn flash_tool(&self) -> PathBuf {
+        self.repo.join("blflashcommand")
     }
     pub fn gen_dir(&self) -> PathBuf {
-        self.mcu_tool().join("chips/bl808/img_create_mcu")
+        self.flash_tool().join("chips/bl808/img_create")
     }
     pub fn log_dir(&self) -> PathBuf {
         self.repo.join("logs")

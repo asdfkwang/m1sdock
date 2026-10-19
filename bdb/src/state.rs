@@ -14,6 +14,7 @@ use crate::logger;
 pub enum State {
     Absent,
     Linux,
+    D0Booting,
     M0Only,
     FlashMode,
     Busy,
@@ -90,7 +91,7 @@ pub fn snapshot(ctx: &Ctx) -> Snapshot {
     let our_log_marker = format!("{}/logs/c", ctx.repo.display());
     let holders = procs::holders_of(&ctx.port_c1);
     for h in &holders {
-        let tag = if h.is_bflb_child() {
+        let tag = if h.is_flash_child() {
             "flash-child"
         } else if h.comm == "tio" && h.cmd.contains(&our_log_marker) {
             "own-logger"
@@ -125,7 +126,7 @@ pub fn snapshot(ctx: &Ctx) -> Snapshot {
     }
 
     // Log signatures since the newest logger-start marker.
-    let (c0_txt, c0_mt) = tail_text(ctx, "c0", 1200);
+    let (c0_txt, c0_mt) = tail_text(ctx, "c0", 65536);
     let (c1_txt, c1_mt) = tail_text(ctx, "c1", 800);
     for (tag, (txt, mt)) in [("c0", (&c0_txt, &c0_mt)), ("c1", (&c1_txt, &c1_mt))] {
         let t = txt.as_deref().unwrap_or("");
@@ -143,7 +144,7 @@ pub fn snapshot(ctx: &Ctx) -> Snapshot {
     let c0 = c0_txt.unwrap_or_default();
     let c1 = c1_txt.unwrap_or_default();
     let linux = sig(&c0, "Linux login:");
-    let c906 = sig(&c0, "C906 start");
+    let c906 = sig(&c0, "C906 start") || sig(&c0, "Linux version ") || sig(&c0, "Run /sbin/init");
     let sbi = sig(&c0, "OpenSBI");
     let e907 = sig(&c1, "E907 start");
 
@@ -152,7 +153,7 @@ pub fn snapshot(ctx: &Ctx) -> Snapshot {
         if a.txn.status == "running" && a.owner_dead {
             hints.push("run: bdb recover".to_string());
             State::FlashInterrupted
-        } else if a.txn.status == "running" && holders.iter().any(|h| h.is_bflb_child()) {
+        } else if a.txn.status == "running" && holders.iter().any(|h| h.is_flash_child()) {
             hints.push("a flash run is in progress — do not touch the ports".to_string());
             State::Busy
         } else if a.txn.status == "running" && lock_meta.is_some() {
@@ -169,7 +170,7 @@ pub fn snapshot(ctx: &Ctx) -> Snapshot {
             evidence.push("holders=own-logger (normal resting state after log start)".to_string());
             classify_log(linux, c906, sbi, e907, &c0_mt, &c1_mt, &mut hints, &mut evidence)
         } else {
-            if holders.iter().any(|h| h.is_bflb_child()) {
+            if holders.iter().any(|h| h.is_flash_child()) {
                 hints.push("orphaned flash child on the port; run: bdb recover or retry the flash".to_string());
             }
             State::Busy
@@ -180,10 +181,7 @@ pub fn snapshot(ctx: &Ctx) -> Snapshot {
 
     if matches!(state, State::M0Only) {
         hints.push("m0 banner seen but no Linux login — d0 may be mute; recovery recipe: bdb flash low-load, or: bdb flash factory-bootinfo".to_string());
-        hints.push(crate::core::need(
-            "buttons",
-            "enter flash-mode: hold BOOT, tap RESET while holding, release BOOT after ~1s",
-        ));
+        hints.push("run: bdb flash low-load to stop loggers and receive flash-mode instructions".to_string());
     }
     Snapshot { state, hints, evidence }
 }
@@ -201,10 +199,11 @@ fn classify_log(
 ) -> State {
     if linux {
         State::Linux
+    } else if c906 || sbi {
+        evidence.push("d0-boot-progress-seen; login-prompt-not-seen".into());
+        hints.push("D0 has boot output; inspect c0.log for the latest boot stage".into());
+        State::D0Booting
     } else if e907 {
-        if c906 || sbi {
-            evidence.push("d0-lines-present-but-no-login".to_string());
-        }
         hints.push("m0 seen, Linux not up yet — run: bdb wait-for linux".to_string());
         State::M0Only
     } else {
@@ -223,6 +222,7 @@ pub fn print(_ctx: &Ctx, snap: &Snapshot, as_json: bool) -> crate::core::ECode {
     let st = match snap.state {
         State::Absent => "absent",
         State::Linux => "linux",
+        State::D0Booting => "d0-booting",
         State::M0Only => "m0-only",
         State::FlashMode => "flash-mode",
         State::Busy => "busy",
@@ -245,4 +245,31 @@ pub fn print(_ctx: &Ctx, snap: &Snapshot, as_json: bool) -> crate::core::ECode {
         el!("[bdb] hint: {h}");
     }
     crate::core::ECode::Ok
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn d0_output_without_login_is_not_m0_only() {
+        let mut hints = Vec::new();
+        let mut evidence = Vec::new();
+        assert_eq!(
+            classify_log(false, false, true, true, &None, &None, &mut hints, &mut evidence),
+            State::D0Booting
+        );
+        assert_eq!(
+            classify_log(false, true, false, false, &None, &None, &mut hints, &mut evidence),
+            State::D0Booting
+        );
+        assert_eq!(
+            classify_log(false, false, false, true, &None, &None, &mut hints, &mut evidence),
+            State::M0Only
+        );
+        assert_eq!(
+            classify_log(true, true, true, true, &None, &None, &mut hints, &mut evidence),
+            State::Linux
+        );
+    }
 }

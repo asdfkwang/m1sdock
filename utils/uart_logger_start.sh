@@ -11,7 +11,9 @@ BASEDIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOGDIR="$BASEDIR/logs"
 TMUX_SESSION_C0="uart-c0"
 TMUX_SESSION_C1="uart-c1"
-BAUD=2000000
+BAUD="${BDB_BAUD:-2000000}"
+PORT_C0="${BDB_PORT_C0:-/dev/ttyUSB0}"
+PORT_C1="${BDB_PORT_C1:-/dev/ttyUSB1}"
 
 mkdir -p "$LOGDIR"
 
@@ -36,23 +38,23 @@ fi
 
 # Write session start markers to log files (trace source/time of log output)
 echo "" >> "$LOGDIR/c0.log"
-echo "===== $(date '+%Y-%m-%d %H:%M:%S') UART LOGGER START c0 (/dev/ttyUSB0, ${BAUD} baud) =====" >> "$LOGDIR/c0.log"
+echo "===== $(date '+%Y-%m-%d %H:%M:%S') UART LOGGER START c0 ($PORT_C0, ${BAUD} baud) =====" >> "$LOGDIR/c0.log"
 echo "" >> "$LOGDIR/c0.log"
 
 echo "" >> "$LOGDIR/c1.log"
-echo "===== $(date '+%Y-%m-%d %H:%M:%S') UART LOGGER START c1 (/dev/ttyUSB1, ${BAUD} baud) =====" >> "$LOGDIR/c1.log"
+echo "===== $(date '+%Y-%m-%d %H:%M:%S') UART LOGGER START c1 ($PORT_C1, ${BAUD} baud) =====" >> "$LOGDIR/c1.log"
 echo "" >> "$LOGDIR/c1.log"
 
 # c0: /dev/ttyUSB0 -> logs/c0.log (console log read by AI)
-echo "[uart_logger] c0 (/dev/ttyUSB0 -> logs/c0.log) start..."
-tmux new-session -d -s "$TMUX_SESSION_C0" \
-    "tio -b $BAUD -L --log-file '$LOGDIR/c0.log' --log-append --log-strip /dev/ttyUSB0"
+echo "[uart_logger] c0 ($PORT_C0 -> logs/c0.log) start..."
+printf -v C0_CMD '%q ' tio -b "$BAUD" -L --log-file "$LOGDIR/c0.log" --log-append --log-strip "$PORT_C0"
+tmux new-session -d -s "$TMUX_SESSION_C0" "$C0_CMD"
 sleep 1
 
 # c1: /dev/ttyUSB1 -> logs/c1.log (flash/control)
-echo "[uart_logger] c1 (/dev/ttyUSB1 -> logs/c1.log) start..."
-tmux new-session -d -s "$TMUX_SESSION_C1" \
-    "tio -b $BAUD -L --log-file '$LOGDIR/c1.log' --log-append --log-strip /dev/ttyUSB1"
+echo "[uart_logger] c1 ($PORT_C1 -> logs/c1.log) start..."
+printf -v C1_CMD '%q ' tio -b "$BAUD" -L --log-file "$LOGDIR/c1.log" --log-append --log-strip "$PORT_C1"
+tmux new-session -d -s "$TMUX_SESSION_C1" "$C1_CMD"
 sleep 1
 
 echo "[uart_logger] Session status:"

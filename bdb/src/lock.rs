@@ -86,12 +86,12 @@ pub fn report_contention(ctx: &Ctx) -> ExitCode {
     for h in procs::holders_of(&ctx.port_c1) {
         el!("[bdb] port={} {}", ctx.port_c1, h.summary());
         let parent_dead = !Path::new(&format!("/proc/{}", h.ppid)).exists();
-        if h.is_bflb_child() && parent_dead {
+        if h.is_flash_child() && parent_dead {
             el!(
-                "[bdb] ghost-flash-child: orphaned bflb python (parent gone) — the next flash run reaps pid {} automatically",
+                "[bdb] ghost-flash-child: orphaned blflashcommand python (parent gone) — the next flash run reaps pid {} automatically",
                 h.pid
             );
-        } else if h.is_bflb_child() {
+        } else if h.is_flash_child() {
             el!("[bdb] flash run in progress — wait for it, or kill pid {} if it is truly stale", h.pid);
         } else {
             el!(

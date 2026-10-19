@@ -14,9 +14,9 @@ pub struct Holder {
 }
 
 impl Holder {
-    /// ghost = our own flash child (bflb python) whose bdb parent is gone.
-    pub fn is_bflb_child(&self) -> bool {
-        self.cmd.contains("bflb")
+    /// ghost = our own flash child (blflashcommand python) whose bdb parent is gone.
+    pub fn is_flash_child(&self) -> bool {
+        self.cmd.contains("blflashcommand") || self.cmd.contains("drv_blflash.py")
     }
     pub fn summary(&self) -> String {
         format!(

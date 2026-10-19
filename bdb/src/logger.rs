@@ -65,7 +65,11 @@ fn script(ctx: &Ctx, which: &str) -> ECode {
         el!("[bdb] error: logger script missing: {}", p.display());
         return ECode::Usage;
     }
-    let st = Command::new("bash").arg(&p).status();
+    let st = Command::new("bash").arg(&p)
+        .env("BDB_PORT_C0", &ctx.port_c0)
+        .env("BDB_PORT_C1", &ctx.port_c1)
+        .env("BDB_BAUD", &ctx.baud)
+        .status();
     if st.map(|x| x.success()).unwrap_or(false) {
         ECode::Ok
     } else {
@@ -222,10 +226,6 @@ pub fn wait_for(ctx: &Ctx, step_name: &str) -> ECode {
             el!(
                 "{}",
                 need("buttons", "press and release RESET (normal boot), then rerun this wait-for")
-            );
-            el!(
-                "{}",
-                need("replug", "if RESET does nothing: unplug the USB cable, wait 3s, plug back, then: bdb state")
             );
             return ECode::Fail;
         }

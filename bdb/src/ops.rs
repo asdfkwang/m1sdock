@@ -11,7 +11,7 @@ use crate::logger;
 use crate::procs;
 use crate::pyt;
 
-const ALL_OK: &str = "[All Successful]";
+const SESSION_OK: &str = "[bdb-driver] session-ok";
 
 fn hx(v: u64) -> String {
     format!("0x{v:x}")
@@ -78,43 +78,24 @@ pub fn doctor(ctx: &Ctx) -> ECode {
     failures += !check("bin:flock", Path::new("/usr/bin/flock").exists(), Some("util-linux"), None) as u32;
     failures += !check("bin:sha256sum", bin_ok("sha256sum"), Some("coreutils"), None) as u32;
 
-    let venv = ctx.venv_python();
-    check(
-        "python-venv",
-        venv.exists(),
-        None,
-        Some("restore tools/venv so tools/venv/bin/python3 exists and can import the bflb tool packages"),
-    );
-    check(
-        "mcu-tool-tree",
-        ctx.mcu_tool().join("core/bflb_mcu_tool.py").exists(),
-        None,
-        Some("restore the vendored tools tree (git checkout -- tools/bflb_mcu_tool)"),
-    );
-    check(
-        "iot-tool-tree",
-        ctx.iot_tool().join("core/bflb_iot_tool.py").exists(),
-        None,
-        Some("restore the vendored tools tree (git checkout -- tools/bflb_iot_tool)"),
-    );
-    check(
-        "vendor-low-load-images",
-        ctx.vendor_m0().exists() && ctx.vendor_d0().exists(),
-        None,
-        Some("rebuild the vendor outputs per docs/build.md (M1s_BL808_Linux_SDK/out/low_load_bl808_*.bin)"),
-    );
-    check(
-        "whole-img-reference",
-        ctx.fw_whole_img().exists(),
-        None,
-        Some("restore M1s_BL808_Linux_SDK/out/whole_img_linux.bin (needed as a placeholder path by the readback driver)"),
-    );
-    check(
-        "factory-bootinfo-asset",
-        ctx.asset_bootinfo().exists(),
-        None,
-        Some("restore bdb/assets/factory_bootinfo.bin (8 KiB factory bootinfo dump used by 'bdb flash factory-bootinfo')"),
-    );
+    failures += !check("python-venv", ctx.venv_python().exists(), None,
+        Some("restore blflashcommand/venv and install blflashcommand/requirements.txt plus setuptools<81")) as u32;
+    failures += !check("blflashcommand", ctx.flash_tool().join("BLFlashCommand.py").exists(), None,
+        Some("restore the corrected blflashcommand checkout")) as u32;
+    failures += !check("image-preparer", ctx.repo.join("utils/prepare_blflash_low_load.py").exists(), None,
+        Some("restore utils/prepare_blflash_low_load.py")) as u32;
+    failures += !check("sdk-low-load-images", ctx.vendor_m0().exists() && ctx.vendor_d0().exists(), None,
+        Some("build M1s_BL808_Linux_SDK/out/low_load_bl808_{m0,d0}.bin")) as u32;
+    if ctx.venv_python().exists() && ctx.flash_tool().exists() {
+        let result = Command::new(ctx.venv_python()).args(["-B", "BLFlashCommand.py", "--help"])
+            .current_dir(ctx.flash_tool()).output();
+        let ok = result.as_ref().map(|r| r.status.success()).unwrap_or(false);
+        failures += !check("blflashcommand-imports", ok, None,
+            Some("inspect blflashcommand Python dependencies; CryptoPlus needs setuptools<81")) as u32;
+        if !ok {
+            if let Ok(result) = result { el!("{}", String::from_utf8_lossy(&result.stderr)); }
+        }
+    }
 
     let has0 = Path::new(&ctx.port_c0).exists();
     let has1 = Path::new(&ctx.port_c1).exists();
@@ -156,11 +137,6 @@ impl FlashKind {
 /// `recovering` marks a recovery run: an interrupted txn is then deliberately
 /// superseded instead of blocking the flow.
 fn preflight(ctx: &Ctx, kind: &FlashKind, recovering: bool) -> Option<ECode> {
-    if !Path::new(&ctx.port_c1).exists() {
-        el!("[bdb] error: control port {} absent", ctx.port_c1);
-        el!("{}", need("replug", "check the dock USB cable: unplug, wait 3s, plug back, then rerun this command"));
-        return Some(ECode::NeedUser);
-    }
     if let Some(a) = open_active(&ctx.txn_file()) {
         if a.txn.status == "running" && a.owner_dead {
             if recovering {
@@ -185,7 +161,7 @@ fn preflight(ctx: &Ctx, kind: &FlashKind, recovering: bool) -> Option<ECode> {
     // Reap orphaned flash children (our own python tool with a dead parent).
     for h in procs::holders_of(&ctx.port_c1) {
         let parent_gone = h.ppid > 0 && !Path::new(&format!("/proc/{}", h.ppid)).exists();
-        if h.is_bflb_child() && parent_gone {
+        if h.is_flash_child() && parent_gone {
             el!("[bdb] reaping orphaned flash child pid={} name={}", h.pid, h.comm);
             procs::kill_pid(h.pid, "-TERM");
             std::thread::sleep(std::time::Duration::from_millis(1200));
@@ -197,17 +173,26 @@ fn preflight(ctx: &Ctx, kind: &FlashKind, recovering: bool) -> Option<ECode> {
         }
     }
 
-    // Stop our own tmux logger so the ports are free for the flasher.
     let st = logger::status(ctx);
-    if st.c0_running || st.c1_running {
-        el!("[bdb] preflight: stopping tmux logger to free ports");
-        let _ = logger::stop(ctx);
+    let stopped_logger = st.c0_running || st.c1_running;
+    if stopped_logger {
+        el!("[bdb] preflight: stopping tmux logger and releasing ports before flashing");
+        if logger::stop(ctx) != ECode::Ok {
+            el!("[bdb] error: cannot stop UART loggers; no flash-mode instruction issued");
+            return Some(ECode::Fail);
+        }
+        let after = logger::status(ctx);
+        if after.c0_running || after.c1_running {
+            el!("[bdb] error: UART logger still active");
+            return Some(ECode::Busy);
+        }
     }
 
     // Any residual holder blocks the flasher (transparent to us).
-    let holders = procs::holders_of(&ctx.port_c1);
+    let mut holders = procs::holders_of(&ctx.port_c1);
+    holders.extend(procs::holders_of(&ctx.port_c0));
     for h in &holders {
-        if h.is_bflb_child() {
+        if h.is_flash_child() {
             el!("[bdb] error: flash child still alive on {}: {}", ctx.port_c1, h.summary());
         } else {
             el!("[bdb] error: port held by external process: {}", h.summary());
@@ -224,6 +209,11 @@ fn preflight(ctx: &Ctx, kind: &FlashKind, recovering: bool) -> Option<ECode> {
         return Some(ECode::Busy);
     }
 
+    if !Path::new(&ctx.port_c1).exists() {
+        el!("[bdb] error: control port {} absent", ctx.port_c1);
+        el!("{}", need("exec", "connect the dock and check the serial port path"));
+        return Some(ECode::NeedUser);
+    }
     if let FlashKind::Single { src, .. } = kind {
         if !src.exists() {
             el!("[bdb] error: source file missing: {}", src.display());
@@ -232,12 +222,6 @@ fn preflight(ctx: &Ctx, kind: &FlashKind, recovering: bool) -> Option<ECode> {
     }
     let _ = ctx.ensure_dirs();
     None
-}
-
-struct ProgramResult {
-    timed_out: bool,
-    exit: Option<i32>,
-    output: String,
 }
 
 /// Build the regions list the program step is expected to produce.
@@ -271,148 +255,81 @@ fn expected_low_load_regions(ctx: &Ctx) -> Option<Vec<Region>> {
     Some(out)
 }
 
-fn run_program(ctx: &Ctx, kind: &FlashKind) -> ProgramResult {
-    match kind {
-        FlashKind::LowLoad => {
-            let r = pyt::run_flash_low_load(ctx);
-            ProgramResult { timed_out: r.timeout, exit: r.exit, output: r.output }
-        }
-        FlashKind::Single { src, addr_hex, .. } => {
-            let mut cmd = Command::new(ctx.venv_python());
-            cmd.arg("core/bflb_iot_tool.py")
-                .args([
-                    "--chipname", "bl808",
-                    "--port", &ctx.port_c1,
-                    "--baudrate", &ctx.baud,
-                    "--firmware", &src.display().to_string(),
-                    "--addr", addr_hex,
-                    "--single",
-                ])
-                .current_dir(ctx.iot_tool())
-                .env("PYTHONPATH", ctx.iot_tool());
-            let r = pyt::run_streaming(&mut cmd, ctx.timeout);
-            ProgramResult { timed_out: r.timeout, exit: r.exit, output: r.output }
-        }
-    }
-}
-
-/// One full flash transaction: journal -> program -> readback verify -> verdict.
+/// Prepare and journal source hashes BEFORE opening UART; write and read back
+/// with blflashcommand using one connection.
 pub fn engine(ctx: &Ctx, kind: &FlashKind, recover_of: Option<String>) -> ECode {
-    if let Some(c) = preflight(ctx, kind, recover_of.is_some()) {
-        return c;
+    if let Some(code) = preflight(ctx, kind, recover_of.is_some()) { return code; }
+    if matches!(kind, FlashKind::LowLoad) {
+        let prepared = pyt::prepare_low_load(ctx);
+        if prepared.exit != Some(0) || prepared.timeout {
+            el!("[bdb] error: low-load image generation/validation failed; UART not opened");
+            return ECode::Fail;
+        }
     }
     let mut txn = Txn::new(&kind.cmd_string());
     txn.recover_of = recover_of;
-    el!("[bdb] txn={} cmd=\"{}\"", txn.id, txn.cmd);
-    let _ = save_active(&ctx.txn_file(), &txn);
-
-    // ---- program phase ----
-    el!("[bdb] phase=program");
-    let prog = run_program(ctx, kind);
-    let prog_ok = prog.exit == Some(0) && prog.output.contains(ALL_OK);
-    if prog.timed_out || prog.exit.is_none() {
-        // Timed out/aborted: leave the journal as running so that a later
-        // invocation reports the interruption and recover can replay it.
-        txn.status = "running".into();
-        el!("[bdb] program result=timeout-or-aborted exit={:?}", prog.exit);
-        return finish_interrupted(ctx, &txn);
-    }
-    if !prog_ok {
-        txn.status = "failed".into();
-        el!("[bdb] program result=failed exit={:?}", prog.exit);
-        return finish_program_failure(ctx, &txn, kind);
-    }
-    el!("[bdb] program result=ok");
-
-    // ---- build region records for the verify phase ----
     txn.regions = match kind {
         FlashKind::LowLoad => match expected_low_load_regions(ctx) {
-            Some(r) => r,
-            None => {
-                txn.status = "failed".into();
-                el!(
-                    "[bdb] error: generated artifacts not found at {}; tool layout may have changed",
-                    ctx.gen_dir().display()
-                );
-                el!("{}", need("fix-repo", "inspect the flash tool output above; keep the vendored tools tree intact"));
-                let _ = archive(&ctx.txn_file(), &ctx.txn_hist_dir(), &txn);
-                return ECode::Fail;
-            }
+            Some(regions) => regions,
+            None => { el!("[bdb] error: generated images missing"); return ECode::Fail; }
         },
-        FlashKind::Single { name, addr_hex, src, .. } => {
-            let (_base, _) = parse_num(addr_hex).unwrap_or((0, false));
+        FlashKind::Single { name, addr_hex, src } => {
             let size = std::fs::metadata(src).map(|m| m.len()).unwrap_or(0);
-            let sha = pyt::sha256_file(src).unwrap_or_default();
-            vec![Region {
-                name: name.clone(),
-                addr: addr_hex.clone(),
-                size,
-                src: src.display().to_string(),
-                src_sha256: sha,
-                verified: false,
-            }]
+            let Some(sha) = pyt::sha256_file(src) else { return ECode::Fail; };
+            if size == 0 { el!("[bdb] error: source is empty"); return ECode::Usage; }
+            vec![Region { name: name.clone(), addr: addr_hex.clone(), size,
+                src: src.display().to_string(), src_sha256: sha, verified: false }]
         }
     };
-    for r in &txn.regions {
-        el!(
-            "[bdb] region={} addr={} size={} src=\"{}\" sha256={}",
-            r.name, r.addr, r.size, r.src, r.src_sha256
-        );
+    el!("[bdb] txn={} backend=blflashcommand cmd=\"{}\"", txn.id, txn.cmd);
+    if save_active(&ctx.txn_file(), &txn).is_err() {
+        el!("[bdb] error: cannot persist transaction; UART not opened");
+        return ECode::Fail;
     }
-    let _ = save_active(&ctx.txn_file(), &txn);
-
-    // ---- verify phase: on-chip readback + sha comparison ----
-    let verified = onchip_verify(ctx, &mut txn);
+    for r in &txn.regions {
+        el!("[bdb] region={} addr={} size={} sha256={}", r.name, r.addr, r.size, r.src_sha256);
+    }
+    let result = pyt::run_session(ctx, &txn.regions, true);
+    if result.timeout || result.exit.is_none() { return finish_interrupted(ctx, &txn); }
+    if result.exit != Some(0) || !result.output.lines().any(|s| s == SESSION_OK) {
+        txn.status = "failed".into();
+        el!("[bdb] program/readback result=failed exit={:?}", result.exit);
+        return finish_program_failure(ctx, &txn, kind);
+    }
+    let verified = compare_readback(ctx, &mut txn, &result);
     txn.status = if verified { "done" } else { "failed" }.into();
-    let _ = save_active(&ctx.txn_file(), &txn);
     if verified {
-        el!("[bdb] result=success txn={} regions=\"{}\"", txn.id,
-            txn.regions.iter().map(|r| r.name.as_str()).collect::<Vec<_>>().join(","));
-        let _ = finalize(&ctx.txn_file(), &ctx.txn_hist_dir(), &txn);
-        restore_logger(ctx);
-        el!("[bdb] next: cold boot sequence — unplug USB, wait 3s, plug back");
-        el!("[bdb] next: press RESET (no BOOT) once board re-enumerates");
-        el!("[bdb] next: run: bdb wait-for linux");
+        if finalize(&ctx.txn_file(), &ctx.txn_hist_dir(), &txn).is_err() { return ECode::Fail; }
+        el!("[bdb] result=success txn={} verification=on-chip-readback-sha256", txn.id);
+        post_session_instructions();
         ECode::Ok
     } else {
-        el!("[bdb] result=verify-mismatch txn={}", txn.id);
-        el!("{}", need(
-            "replug",
-            "the flash was NOT fully applied (known ghost-write failure mode): unplug the USB cable, wait 3s, plug back",
-        ));
-        el!("[bdb] next: enter flash-mode, then rerun the same flash command (idempotent)");
         let _ = archive(&ctx.txn_file(), &ctx.txn_hist_dir(), &txn);
+        el!("[bdb] result=verify-mismatch txn={}", txn.id);
+        post_session_instructions();
         ECode::Fail
     }
 }
 
+fn post_session_instructions() {
+    el!("NEXT: run: bdb log start");
+    el!("NEXT: press RESET without BOOT and inspect: bdb log tail");
+}
+
 fn finish_program_failure(ctx: &Ctx, txn: &Txn, _kind: &FlashKind) -> ECode {
     let _ = archive(&ctx.txn_file(), &ctx.txn_hist_dir(), txn);
-    el!("[bdb] hints: no handshake response or incomplete program — the common causes are flash-mode not entered, or a polluted USB port");
-    el!("{}", need(
-        "buttons",
-        "enter flash-mode: hold BOOT, tap RESET while holding, keep holding ~1s, release BOOT",
-    ));
-    el!("{}", need(
-        "replug",
-        "if a retry after flash-mode entry still fails: unplug the USB cable, wait 3s, plug back",
-    ));
-    el!("[bdb] next: rerun the same flash command (it is idempotent; history kept)");
+    el!("[bdb] hints: flash/readback failed; keep loggers OFF and check that no process holds either UART");
+    el!("{}", need("buttons", "enter flash-mode: hold BOOT, press and release RESET, then release BOOT"));
+    el!("NEXT: rerun the same command with the ports free");
     ECode::Fail
 }
 
 fn finish_interrupted(ctx: &Ctx, txn: &Txn) -> ECode {
     let _ = archive(&ctx.txn_file(), &ctx.txn_hist_dir(), txn);
     el!("[bdb] result=interrupted txn={} (owner died) — able to retry via: bdb recover", txn.id);
+    post_session_instructions();
     // Do NOT restart logger: the port may still be held by the killed child.
     ECode::Fail
-}
-
-fn restore_logger(ctx: &Ctx) {
-    el!("[bdb] restoring tmux logger");
-    if logger::start(ctx) != ECode::Ok {
-        el!("[bdb] hint: logger start failed; run: bdb log start and check tmux availability");
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -422,27 +339,16 @@ fn restore_logger(ctx: &Ctx) {
 /// On-chip truth: run the readback driver over the txn regions and compare
 /// each rd_* file's sha256 to the expected src sha.
 pub fn onchip_verify(ctx: &Ctx, txn: &mut Txn) -> bool {
-    el!("[bdb] phase=verify kind=on-chip-readback regions={}", txn.regions.len());
-    let list: Vec<(String, String, String)> = txn
-        .regions
-        .iter()
-        .map(|r| {
-            let (base, _) = parse_num(&r.addr).unwrap_or((0, false));
-            // The tool's read command treats end_addr as INCLUSIVE: it returns
-            // end-start+1 bytes. Probe it for exactly size bytes, i.e. last
-            // address = base + size - 1.
-            (r.name.clone(), r.addr.clone(), hx(base + r.size - 1))
-        })
-        .collect();
-    let res = pyt::run_readback(ctx, &list);
-    if res.exit != Some(0) {
-        el!("[bdb] verify result=readback-failed exit={:?} (flash-mode absent or port polluted)", res.exit);
-        el!("{}", need(
-            "buttons",
-            "enter flash-mode to allow on-chip readback: hold BOOT, tap RESET, release after ~1s",
-        ));
+    let result = pyt::run_session(ctx, &txn.regions, false);
+    if result.exit != Some(0) || result.timeout || !result.output.lines().any(|s| s == SESSION_OK) {
+        el!("[bdb] verify result=readback-failed exit={:?}", result.exit);
         return false;
     }
+    compare_readback(ctx, txn, &result)
+}
+
+fn compare_readback(ctx: &Ctx, txn: &mut Txn, res: &pyt::RunOutcome) -> bool {
+    el!("[bdb] phase=verify kind=on-chip-readback regions={}", txn.regions.len());
     // find output dir in our own tail marker
     let out_dir = res
         .output
@@ -452,32 +358,22 @@ pub fn onchip_verify(ctx: &Ctx, txn: &mut Txn) -> bool {
     let mut all_ok = true;
     for r in txn.regions.iter_mut() {
         let rd = out_dir.join(format!("rd_{}.bin", r.name));
-        // Trust rule: compare the first `size` bytes even when the tool
-        // overshoots (end_addr inclusivity); a SHORT read is a hard failure.
-        let (got, size, tool_pad) = match std::fs::read(&rd) {
-            Ok(b) => {
-                let have = b.len() as u64;
-                if have < r.size {
-                    ("<short-read>".into(), have, false)
-                } else {
-                    let trunc = ctx.work_dir().join(format!("trunc_{}.bin", r.name));
-                    let _ = std::fs::write(&trunc, &b[..r.size as usize]);
-                    (pyt::sha256_file(&trunc).unwrap_or_else(|| "-".into()), r.size, have > r.size)
-                }
-            }
-            Err(_) => ("<missing>".into(), 0, false),
+        let size = std::fs::metadata(&rd).map(|m| m.len()).unwrap_or(0);
+        let got = if size == r.size {
+            pyt::sha256_file(&rd).unwrap_or_else(|| "<unreadable>".into())
+        } else {
+            "<wrong-size>".into()
         };
         let ok = got == r.src_sha256 && size == r.size;
         r.verified = ok;
         all_ok &= ok;
         el!(
-            "[bdb] verify region={} expected-sha={} got-sha={} size={}/{} tool-extra-bytes={} verdict={}",
+            "[bdb] verify region={} expected-sha={} got-sha={} size={}/{} verdict={}",
             r.name,
             r.src_sha256,
             got,
             size,
             r.size,
-            tool_pad,
             if ok { "match" } else { "MISMATCH" }
         );
     }
@@ -507,16 +403,16 @@ pub fn flash_bootinfo_asset(ctx: &Ctx) -> ECode {
 }
 
 pub fn flash_file(ctx: &Ctx, src: PathBuf, addr: String) -> ECode {
-    if parse_num(&addr).is_none() {
+    let Some((address, _)) = parse_num(&addr) else {
         el!("[bdb] error: --addr expects hex e.g. 0x52000");
         return ECode::Usage;
-    }
+    };
     let abs = src.canonicalize().unwrap_or(src);
     engine(
         ctx,
         &FlashKind::Single {
             name: "file".into(),
-            addr_hex: addr,
+            addr_hex: hx(address),
             src: abs,
             
         },
@@ -530,31 +426,30 @@ pub fn readback(ctx: &Ctx, addr: String, len: String, out: Option<PathBuf>) -> E
         el!("[bdb] error: --addr/--len expect hex values e.g. 0x0 0x2000");
         return ECode::Usage;
     };
-    if let Some(c) = preflight(ctx, &FlashKind::LowLoad, false) {
-        return c;
-    }
+    if ln == 0 || ad.checked_add(ln).is_none() { return ECode::Usage; }
+    if let Some(c) = preflight(ctx, &FlashKind::LowLoad, false) { return c; }
     let mut txn = Txn::new("readback");
     let name = format!("rb_{ad:08x}_len{ln:x}");
     txn.regions.push(Region {
         name,
-        addr: addr.clone(),
+        addr: hx(ad),
         size: ln,
         src: out.clone().map(|o| o.display().to_string()).unwrap_or_default(),
         src_sha256: String::new(),
         verified: false,
     });
-    let _ = save_active(&ctx.txn_file(), &txn);
-    let list = vec![(txn.regions[0].name.clone(), hx(ad), hx(ad + ln - 1))];
-    let res = pyt::run_readback(ctx, &list);
-    let ok = res.exit == Some(0);
+    if save_active(&ctx.txn_file(), &txn).is_err() { return ECode::Fail; }
+    let res = pyt::run_session(ctx, &txn.regions, false);
+    let ok = res.exit == Some(0) && !res.timeout && res.output.lines().any(|s| s == SESSION_OK);
     txn.status = if ok { "done" } else { "failed" }.into();
-    let _ = finalize(&ctx.txn_file(), &ctx.txn_hist_dir(), &txn);
+    if ok {
+        let _ = finalize(&ctx.txn_file(), &ctx.txn_hist_dir(), &txn);
+    } else {
+        let _ = archive(&ctx.txn_file(), &ctx.txn_hist_dir(), &txn);
+    }
     if !ok {
         el!("[bdb] result=readback-failed");
-        el!("{}", need(
-            "buttons",
-            "enter flash-mode: hold BOOT, tap RESET while holding, release after ~1s",
-        ));
+        post_session_instructions();
         return ECode::Fail;
     }
     // locate emitted region file
@@ -569,10 +464,14 @@ pub fn readback(ctx: &Ctx, addr: String, len: String, out: Option<PathBuf>) -> E
     if let Some(o) = out {
         match std::fs::copy(&rd, &o) {
             Ok(_) => el!("[bdb] copied to {}", o.display()),
-            Err(e) => el!("[bdb] error: copy failed: {e}"),
+            Err(e) => {
+                el!("[bdb] error: copy failed: {e}");
+                post_session_instructions();
+                return ECode::Fail;
+            },
         }
     }
-    restore_logger(ctx);
+    post_session_instructions();
     ECode::Ok
 }
 
@@ -594,10 +493,11 @@ pub fn verify(ctx: &Ctx) -> ECode {
         return ECode::Usage;
     }
     el!("[bdb] verify txn={} cmd=\"{}\"", info.id, info.cmd);
+    if let Some(code) = preflight(ctx, &FlashKind::LowLoad, false) { return code; }
     let ok = onchip_verify(ctx, &mut info);
+    post_session_instructions();
     if ok {
         el!("[bdb] result=verify-ok");
-        restore_logger(ctx);
         ECode::Ok
     } else {
         el!("[bdb] result=verify-mismatch — rerun: bdb flash or bdb recover");
@@ -611,6 +511,12 @@ fn newest_hist(ctx: &Ctx) -> Option<PathBuf> {
     for e in dir.flatten() {
         let p = e.path();
         if p.extension().and_then(|s| s.to_str()) != Some("json") {
+            continue;
+        }
+        let Some(record) = open_active(&p) else { continue };
+        if record.txn.status != "done" || !record.txn.cmd.starts_with("flash ")
+            || record.txn.regions.is_empty()
+            || record.txn.regions.iter().any(|r| r.src_sha256.is_empty()) {
             continue;
         }
         let name = p.file_stem()?.to_string_lossy().to_string();
@@ -643,6 +549,15 @@ pub fn recover(ctx: &Ctx) -> ECode {
         return ECode::Ok;
     }
     el!("[bdb] recovering txn={} cmd=\"{}\"", a.txn.id, a.txn.cmd);
+    if a.txn.cmd == "readback" && a.txn.regions.len() == 1 {
+        let r = &a.txn.regions[0];
+        // Supersede the dead read transaction before calling readback preflight.
+        let mut previous = a.txn.clone();
+        previous.status = "failed".into();
+        if save_active(&ctx.txn_file(), &previous).is_err() { return ECode::Fail; }
+        let out = (!r.src.is_empty()).then(|| PathBuf::from(&r.src));
+        return readback(ctx, r.addr.clone(), hx(r.size), out);
+    }
     let kind = if a.txn.cmd.contains("low-load") {
         FlashKind::LowLoad
     } else if a.txn.regions.len() == 1 {
@@ -660,9 +575,6 @@ pub fn recover(ctx: &Ctx) -> ECode {
             src: ctx.asset_bootinfo(),
             
         }
-    } else if a.txn.cmd == "readback" && a.txn.regions.len() == 1 {
-        let r = a.txn.regions[0].clone();
-        return readback(ctx, r.addr.clone(), hx(r.size), None);
     } else {
         el!("[bdb] error: cannot rebuild command from txn {}", a.txn.id);
         return ECode::Usage;
