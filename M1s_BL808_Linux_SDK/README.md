@@ -61,8 +61,11 @@ autoboot. The firmware stage is the upstream OpenSBI checkout at `../opensbi`
 (generic platform, `bl808_defconfig`, console-free). The vendor OpenSBI 0.6
 and vendor whole-image rebuild targets (`opensbi`, `whole_bin`, `all`) are
 disabled and exit with an error. U-Boot's DT limits usable PSRAM to 63 MiB
-to protect OpenSBI. MMC is compiled in; SD detection/read is being verified,
-network stays disabled. The output is **`out/whole_img_uboot.bin`**, flashed
+to protect OpenSBI. MMC is compiled in and SD detection/read is verified
+from a clean reset (pad pull-up in `bl808.dtsi`; details and limits in the
+"Generic OpenSBI to S-mode U-Boot" section and
+`../experiments/sdh-irq/README.md`); network stays disabled. The output is
+**`out/whole_img_uboot.bin`**, flashed
 at `0xD2000` with the existing 1 MiB-slot low_load. The preserved
 `out/whole_img_linux.bin` remains on disk.
 
@@ -119,8 +122,16 @@ payload, and a 64 KiB OpenSBI heap patched into the copied device tree.
 The firmware, one hart's stack, and heap must fit the reserved 1 MiB region.
 Output: `out/whole_img_uboot.bin`, flash address `0xD2000`.
 Hardware boot is confirmed through the S-mode U-Boot serial prompt with
-63 MiB DRAM. OpenSBI emits no banner. SD/MMC bring-up through U-Boot is the
-active step; Linux boot through U-Boot has not been verified.
+63 MiB DRAM. OpenSBI emits no banner.
+Verified SD/MMC status: `configs/m1s_d0_defconfig` enables MMC/SDHCI and
+FAT commands, and `bl808.dtsi` sets `bias-pull-up` on the six SD pads (the
+pad-requirement was isolated by UART A/B trials — see
+`../experiments/sdh-irq/README.md`). From a clean reset the card
+(59.7 GiB SD 3.0, manuf `1b`/name `EC1S5`) is identified at HS 50 MHz and
+128 KiB test files are read from FAT with matching CRCs at scratch addresses
+`0x51000000`/`0x51040000` (do not use `0x5300xxxx` — OpenSBI/U-Boot
+reservations). Repeated boots, SD writes and Linux boot through U-Boot are
+not yet verified.
 
 ## Download Firmware
 

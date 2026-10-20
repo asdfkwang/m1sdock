@@ -25,6 +25,11 @@ DEFAULT_PROMPT = "=> "
 DEFAULT_TESTFILE_SIZE = 0x20000
 DEFAULT_TESTFILE_CRC = "B971B8D8"
 
+# Load addresses live in the 0x51xxxxxx scratch region: 0x5300xxxx overlaps
+# the OpenSBI/U-Boot reservations (blank pool pointer) and must not be used.
+TESTFILE_ADDR = 0x51000000
+HELLO_ADDR = 0x51040000
+
 CMDS = (
     "mmc list",
     "mmc dev 0",
@@ -32,10 +37,18 @@ CMDS = (
     "mmc info",
     "mmc part",
     "fatls mmc 0:1",
-    "load mmc 0:1 0x53000000 testfile",
-    "crc32 0x53000000 {TESTFILE_SIZE_HEX}",
-    "load mmc 0:1 0x53000000 hello.txt",
-    "md.b 0x53000000 {HELLO_SIZE_HEX}",
+    f"load mmc 0:1 0x{TESTFILE_ADDR:X} testfile",
+    f"crc32 0x{TESTFILE_ADDR:X} {{TESTFILE_SIZE_HEX}}",
+    f"load mmc 0:1 0x{HELLO_ADDR:X} hello.txt",
+    f"md.b 0x{HELLO_ADDR:X} {{HELLO_SIZE_HEX}}",
+)
+
+# Verification runs: scramble the buffer first so a skipped/stuck load cannot
+# pass by reusing the previous contents.
+REPEAT_CMDS = (
+    f"mw.b 0x{TESTFILE_ADDR:X} 0xa5 {{TESTFILE_SIZE_HEX}}",
+    f"load mmc 0:1 0x{TESTFILE_ADDR:X} testfile",
+    f"crc32 0x{TESTFILE_ADDR:X} {{TESTFILE_SIZE_HEX}}",
 )
 
 
@@ -66,8 +79,15 @@ def parse_manifest(path, out):
 class Console:
     def __init__(self, port, baud, out):
         import serial
-        self.ser = serial.Serial(port, baud, timeout=0.05)
+        # Configure the port without opening it so DTR/RTS are deasserted
+        # before open: toggling the modem lines while opening glitches the
+        # RX stream (same pattern as the experiment console driver).
+        self.ser = serial.Serial(baudrate=baud, timeout=0.05)
         self.ser.exclusive = True
+        self.ser.port = port
+        self.ser.dtr = False
+        self.ser.rts = False
+        self.ser.open()
         self.buf = b""
         self.out = out
 
@@ -88,15 +108,24 @@ class Console:
         return self.buf.decode("utf-8", "replace")
 
     def wait_prompt(self, banner, prompt, timeout, out):
-        text = self.read_until(prompt, timeout)
-        if prompt not in text:
-            log(out, "FAIL: U-Boot prompt not detected before timeout")
-            return False
-        if banner not in text:
-            log(out, "WARN: banner text not seen before prompt (maybe already booted)")
-        else:
-            log(out, "banner OK (U-Boot reached)")
-        return True
+        """Wait for the prompt, heartbeating newlines so an already-idle
+        board (booted before the script started) re-prints it."""
+        step = max(1.0, timeout / 15)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            text = self.read_until(prompt, step)
+            if prompt in text:
+                if banner in text:
+                    log(out, "banner OK (U-Boot reached)")
+                else:
+                    log(out, "prompt OK without banner (board already at prompt)")
+                return True
+            try:
+                self.ser.write(b"\n")
+            except OSError:
+                log(out, "WARN: newline heartbeat write failed")
+        log(out, "FAIL: U-Boot prompt not detected before timeout")
+        return False
 
     def run_command(self, cmd, prompt="=> ", timeout=10):
         log(self.out, f"$ {cmd}")
@@ -124,6 +153,9 @@ def main():
     ap.add_argument("--accept-crc", default="",
                     help="extra acceptable CRC-32 values (comma separated) — used when "
                          "the manifest CRC may be stale; the observed hash is reported")
+    ap.add_argument("--repeat", type=int, default=1,
+                    help="extra verify rounds after the main sequence (each scrambles "
+                         "the buffer with mw.b before a fresh load+crc32)")
     args = ap.parse_args()
 
     out = open(args.transcript, "a", buffering=1)
@@ -166,6 +198,17 @@ def main():
         text = c.run_command(cmd)
         for m in re.finditer(r"==>\s*([0-9A-Fa-f]{8})", text):
             crc_seen.append(m.group(1).upper())
+
+    for rnd in range(1, max(1, args.repeat)):
+        log(out, f"----- verify round {rnd + 1}/{args.repeat} -----")
+        for raw in REPEAT_CMDS:
+            try:
+                cmd = raw.format(**subs)
+            except (KeyError, IndexError):
+                cmd = raw
+            text = c.run_command(cmd)
+            for m in re.finditer(r"==>\s*([0-9A-Fa-f]{8})", text):
+                crc_seen.append(m.group(1).upper())
 
     verdict = []
     if not args.no_crc_check:
