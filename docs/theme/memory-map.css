@@ -1,0 +1,27 @@
+.memory-map { --map-accent: #087e8b; }
+.memory-map .map-controls[hidden], .memory-map [hidden] { display: none !important; }
+.map-controls { position: sticky; top: var(--menu-bar-height, 50px); z-index: 10; padding: 12px 16px; background: var(--bg); border: 1px solid var(--table-border-color); border-radius: 8px; }
+.map-control-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 4px 0; }
+.map-control-label { min-width: 56px; font-size: .85em; color: var(--fg); }
+.map-controls button { font: inherit; font-size: .85em; cursor: pointer; padding: 6px 12px; border: 1px solid var(--table-border-color); border-radius: 5px; color: var(--fg); background: var(--bg); }
+.map-controls button[aria-pressed="true"] { color: #fff; background: var(--map-accent); border-color: var(--map-accent); }
+.map-controls button:focus-visible { outline: 3px solid var(--links); outline-offset: 2px; }
+.map-status { display: block; font-size: .8em; margin-top: 8px; color: var(--fg); }
+.map-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.memory-map[data-view="current"] .map-pair, .memory-map[data-view="future"] .map-pair { grid-template-columns: minmax(0, 1fr); }
+.map-panel { min-width: 0; border: 1px solid var(--table-border-color); border-radius: 8px; overflow: hidden; }
+.map-panel h3 { margin: 0; padding: 12px 14px; font-size: 1em; border-bottom: 1px solid var(--table-border-color); }
+.map-panel[data-era="future"] h3 { border-top: 3px dashed var(--map-accent); }
+.map-panel pre { margin: 0; padding: 14px; overflow-x: auto; font-size: 12px; line-height: 1.6; }
+.map-panel p { margin: 12px 14px; font-size: .9em; }
+.map-note { border-left: 3px solid var(--map-accent); padding-left: 14px; }
+.map-reference { font-size: .85em; }
+/* Give the two ASCII columns space without changing the rest of the book. */
+@supports selector(:has(*)) { .content main:has(.memory-map) { max-width: 1120px; } }
+@media (max-width: 900px) { .map-pair { grid-template-columns: minmax(0, 1fr); } }
+@media print {
+    .memory-map .map-controls { display: none; }
+    .memory-map [hidden] { display: block !important; }
+    .memory-map .map-pair { display: block; }
+    .map-panel { break-inside: avoid; margin-bottom: 16px; }
+}

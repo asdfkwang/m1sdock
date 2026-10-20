@@ -4,3 +4,7 @@ language = "en"
 multilingual = false
 src = "src"
 title = "bl808-linux"
+
+[output.html]
+additional-css = ["theme/memory-map.css"]
+additional-js = ["theme/memory-map.js"]
