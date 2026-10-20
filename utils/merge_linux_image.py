@@ -24,7 +24,8 @@ def validate_dtb(path):
     node = '/reserved-memory/opensbi@53f00000'
     result = subprocess.run(['fdtget', '-t', 'x', str(path), node, 'reg'],
                             check=True, capture_output=True, text=True)
-    if [int(cell, 16) for cell in result.stdout.split()] != [0, OPENSBI_RAM, 0, OPENSBI_SIZE]:
+    cells = [int(cell, 16) for cell in result.stdout.split()]
+    if cells not in ([0, OPENSBI_RAM, 0, OPENSBI_SIZE], [OPENSBI_RAM, OPENSBI_SIZE]):
         raise ValueError('DTB does not reserve the 1 MiB OpenSBI RAM region')
     subprocess.run(['fdtget', str(path), node, 'no-map'],
                    check=True, capture_output=True, text=True)

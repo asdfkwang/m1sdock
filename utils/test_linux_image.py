@@ -76,6 +76,15 @@ class LayoutTests(unittest.TestCase):
             with self.assertRaises(subprocess.CalledProcessError):
                 self.build()
 
+    def test_one_cell_uboot_reservation(self):
+        path = str(self.out / 'hw.dtb.5M')
+        node = '/reserved-memory'
+        for prop in ('#address-cells', '#size-cells'):
+            subprocess.run(['fdtput', '-t', 'x', path, node, prop, '1'], check=True)
+        subprocess.run(['fdtput', '-t', 'x', path, node + '/opensbi@53f00000',
+                        'reg', '53f00000', '100000'], check=True)
+        self.assertEqual(len(self.build()), 0x880000)
+
     def test_invalid_input_preserves_existing_whole(self):
         target = self.out / 'whole_img_linux.bin'
         target.write_bytes(b'previous image')

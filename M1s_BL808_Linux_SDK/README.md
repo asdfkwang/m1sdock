@@ -52,6 +52,16 @@ image together. The old 48 KiB loader is incompatible with this layout.**
 
 Step by step
 
+For the first OpenSBI -> S-mode U-Boot handoff, run `./build.sh uboot`.
+The separate `u-boot/` checkout uses OpenBouffalo tag `bl808-2023-02-19`
+on branch `bl808-m1s-bringup`, with `m1s_d0_defconfig`. This builds RV64
+S-mode U-Boot at `0x50000000`, 2 Mbps UART and no autoboot. It uses the
+working vendor OpenSBI at `0x53f00000`, not the latest UART-only test.
+U-Boot's DT limits usable PSRAM to 63 MiB to protect OpenSBI. MMC and network
+are disabled for this first prompt check; M0/SD interrupt handling is a later
+step. The output is **`out/whole_img_uboot.bin`**, flashed at `0xD2000` with
+the existing 1 MiB-slot low_load. `out/whole_img_linux.bin` is preserved.
+
 For UART-only bring-up of the separate root `opensbi/` checkout, run
 `./build.sh opensbi_uart`. This creates **`out/fw_jump_uart.bin`** at entry
 `0x53f00000`, using the vendor UART setup at 2 Mbps. It prints
@@ -91,6 +101,24 @@ Then find the firmwares under out
 ├── merge_7_5Mbin.py
 └── whole_img_linux.bin
 ```
+
+## Generic OpenSBI to S-mode U-Boot
+
+After building the working U-Boot image with `./build.sh uboot`, run:
+
+```bash
+./build.sh uboot_generic
+```
+
+This uses the local `../opensbi` generic platform with `bl808_defconfig`.
+OpenSBI console and the UART smoke-test hook are disabled. No additional
+OpenSBI C changes are needed for this build. The existing U-Boot payload is
+reused, with a 64 KiB OpenSBI heap configured in the copied device tree.
+The firmware, one hart's stack, and heap must fit the reserved 1 MiB region.
+Output: `out/whole_img_uboot_generic.bin`, flash address `0xD2000`.
+The vendor-based whole images remain available. Hardware boot is confirmed
+through the S-mode U-Boot serial prompt with 63 MiB DRAM. OpenSBI emits no
+banner. SD/MMC and Linux boot through U-Boot have not been verified.
 
 ## Download Firmware
 
