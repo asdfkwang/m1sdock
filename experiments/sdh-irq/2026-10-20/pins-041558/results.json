@@ -1,0 +1,112 @@
+[
+  {
+    "profile": "baseline-original",
+    "pins_added_pullup": [],
+    "card_identified": false,
+    "gpio": [
+      4194307,
+      4194307,
+      4194307,
+      4194307,
+      4194327,
+      4194327
+    ],
+    "sdh_clock_word": 65479
+  },
+  {
+    "profile": "pu-gpio0",
+    "pins_added_pullup": [
+      0
+    ],
+    "card_identified": false,
+    "gpio": [
+      4194323,
+      4194307,
+      4194307,
+      4194307,
+      4194327,
+      4194327
+    ],
+    "sdh_clock_word": 65479
+  },
+  {
+    "profile": "pu-gpio1",
+    "pins_added_pullup": [
+      1
+    ],
+    "card_identified": true,
+    "gpio": [
+      4194307,
+      4194323,
+      4194307,
+      4194307,
+      4194327,
+      4194327
+    ],
+    "sdh_clock_word": 263,
+    "loaded_131072_bytes": true,
+    "crc_match": true
+  },
+  {
+    "profile": "pu-gpio2",
+    "pins_added_pullup": [
+      2
+    ],
+    "card_identified": false,
+    "gpio": [
+      4194307,
+      4194307,
+      4194323,
+      4194307,
+      4194327,
+      4194327
+    ],
+    "sdh_clock_word": 65479
+  },
+  {
+    "profile": "pu-gpio3",
+    "pins_added_pullup": [
+      3
+    ],
+    "card_identified": false,
+    "gpio": [
+      4194307,
+      4194307,
+      4194307,
+      4194323,
+      4194327,
+      4194327
+    ],
+    "sdh_clock_word": 65479
+  },
+  {
+    "profile": "single-green-gpio1-repeat",
+    "pins_added_pullup": [
+      1
+    ],
+    "card_identified": false,
+    "gpio": [
+      4194307,
+      4194323,
+      4194307,
+      4194307,
+      4194327,
+      4194327
+    ],
+    "sdh_clock_word": 519
+  },
+  {
+    "profile": "baseline-repeat",
+    "pins_added_pullup": [],
+    "card_identified": false,
+    "gpio": [
+      4194307,
+      4194307,
+      4194307,
+      4194307,
+      4194327,
+      4194327
+    ],
+    "sdh_clock_word": 65479
+  }
+]

@@ -137,14 +137,51 @@ each profile ran a fresh `mmc rescan`. Successful profiles also loaded the
 
 For this board/card/session, enabling pad pull-up is sufficient to make the
 standard driver work; increasing drive-strength alone is insufficient. This
-is stronger evidence than the earlier mixed clock/pad trial. It does not
-identify a particular signal pin, measure resistor values or establish
-cold-boot reliability. The original pad settings are restored after tests.
+is stronger evidence than the earlier mixed clock/pad trial.
+
+## Pull-up pin narrowing (characterize-041558, pairs-041750)
+
+Two follow-up studies added the pull-up bit (GPIO_CFG bit4) to subsets of
+GPIO0..3 only (GPIO4/5 already carry the pull-up bit in every observed
+post-boot state), always recomputed from the saved baseline:
+
+- [pins run](2026-10-20/pins-041558/results.json): pull-up on GPIO1 alone
+  identified the card and matched the test-file CRC once, but repeating the
+  profile directly afterwards failed with `unable to select a mode`
+  (card-state/ordering effects). GPIO0, GPIO2, GPIO3 singles failed.
+- [pairs run](2026-10-20/pairs-041750/results.json): pull-up on
+  **GPIO0+GPIO1** passed three consecutive runs (card identification,
+  131072-byte load, CRC `7e8e43c2`), and the no-pull-up baseline failed both
+  before and after. The remaining pairs were not needed and not tested.
+
+The minimal reliable pad set for this board/card is therefore
+**GPIO0+GPIO1 pull-up**; the robust board-wide setting mirrors the vendor
+SDK style: pull-up on all six SD pads.
+
+## Cold-boot verification with the DT fix (whole_img_uboot.bin)
+
+`u-boot/arch/riscv/dts/bl808.dtsi` now sets `bias-pull-up;` on the
+`sdh-pins` group (all six pads). The rebuilt `whole_img_uboot.bin`
+(8,912,896 B) flashed at `0xD2000`):
+read-back SHA-256 matched `f4e04352…d85491`. After RESET without BOOT,
+`utils/uboot_console.py --repeat 2` produced a full pass on the D0 console
+([transcript](2026-10-20/coldboot-transcript.txt)):
+
+| Check | Result |
+|---|---|
+| `mmc list` | `mmc@20060000: 0` |
+| Card identity | manuf `1b`, OEM `SM`, name `EC1S5`, SD 3.0 HC, 59.7 GiB, 4-bit, HS 50 MHz |
+| Partition/files | DOS part 1 (FAT32): `hello.txt` 55 B, `testfile` 131072 B |
+| testfile load + CRC @0x51000000 | 131072 B read, CRC `7e8e43c2` = manifest |
+| hello.txt @0x51040000 | byte dump matches "M1s Dock SDHC test card" |
+| Repeat round | buffer scrambled with `mw.b 0xa5`, fresh load, same CRC |
+
+Load addresses use the 0x51xxxxxx scratch region; 0x5300xxxx overlaps
+OpenSBI/U-Boot reservations and must not be used for card data.
 
 ## Remaining work
 
-Narrow down which SD signals need pull-up and translate the result into a
-minimal board pinctrl change. Then verify from a cold reset with that DT,
-including repeated file loads. Linux IRQ handling, SD writes and cold-boot
-reliability are not established. No OpenSBI patch was needed for the IRQ,
-card-identification or file-read tests above.
+Repeated cold boots (more than one), SD writes and Linux IRQ handling are
+not established. No OpenSBI patch was needed for the IRQ,
+card-identification or file-read tests above. Original pad settings are
+restored after each experiment.

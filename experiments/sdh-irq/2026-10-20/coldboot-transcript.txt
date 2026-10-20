@@ -1,0 +1,74 @@
+[04:40:34] ===== uboot_console session start =====
+[04:40:34] port=/dev/ttyUSB0 baud=2000000
+[04:40:34] manifest: testfile size=0x20000 crc=7E8E43C2 hello size=0x37
+[04:40:40] prompt OK without banner (board already at prompt)
+[04:40:40] $ mmc list
+[04:40:40]   | mmc list
+[04:40:40]   | mmc@20060000: 0
+[04:40:40]   | =>
+[04:40:40] $ mmc dev 0
+[04:40:46]   | mmc dev 0
+[04:40:46]   | =>
+[04:40:46] $ mmc rescan
+[04:40:46]   | mmc rescan
+[04:40:46]   | =>
+[04:40:46] $ mmc info
+[04:40:46]   | mmc info
+[04:40:46]   | Device: mmc@20060000
+[04:40:46]   | Manufacturer ID: 1b
+[04:40:46]   | OEM: 534d
+[04:40:46]   | Name: EC1S5
+[04:40:46]   | Bus Speed: 50000000
+[04:40:46]   | Mode: SD High Speed (50MHz)
+[04:40:46]   | Rd Block Len: 512
+[04:40:46]   | SD version 3.0
+[04:40:46]   | High Capacity: Yes
+[04:40:46]   | Capacity: 59.7 GiB
+[04:40:46]   | Bus Width: 4-bit
+[04:40:46]   | Erase Group Size: 512 Bytes
+[04:40:46]   | =>
+[04:40:46] $ mmc part
+[04:40:46]   | mmc part
+[04:40:46]   | Partition Map for MMC device 0  --   Partition Type: DOS
+[04:40:46]   | Part	Start Sector	Num Sectors	UUID		Type
+[04:40:46]   |   1	2048      	125171712 	6f2fe942-01	0c Boot
+[04:40:46]   | =>
+[04:40:46] $ fatls mmc 0:1
+[04:40:46]   | fatls mmc 0:1
+[04:40:46]   |        55   hello.txt
+[04:40:46]   |    131072   testfile
+[04:40:46]   | 2 file(s), 0 dir(s)
+[04:40:46]   | =>
+[04:40:46] $ load mmc 0:1 0x51000000 testfile
+[04:40:46]   | load mmc 0:1 0x51000000 testfile
+[04:40:46]   | 131072 bytes read in 32 ms (3.9 MiB/s)
+[04:40:46]   | =>
+[04:40:46] $ crc32 0x51000000 0x20000
+[04:40:46]   | crc32 0x51000000 0x20000
+[04:40:46]   | CRC32 for 51000000 ... 5101ffff ==> 7e8e43c2
+[04:40:46]   | =>
+[04:40:46] $ load mmc 0:1 0x51040000 hello.txt
+[04:40:46]   | load mmc 0:1 0x51040000 hello.txt
+[04:40:46]   | 55 bytes read in 20 ms (2 KiB/s)
+[04:40:46]   | =>
+[04:40:46] $ md.b 0x51040000 0x37
+[04:40:46]   | md.b 0x51040000 0x37
+[04:40:46]   | 51040000: 4d 31 73 20 44 6f 63 6b 20 53 44 48 43 20 74 65  M1s Dock SDHC te
+[04:40:46]   | 51040010: 73 74 20 63 61 72 64 0a 6d 61 72 6b 65 72 3a 20  st card.marker:
+[04:40:46]   | 51040020: 6d 31 73 64 6f 63 6b 2d 75 62 6f 6f 74 2d 6d 6d  m1sdock-uboot-mm
+[04:40:46]   | 51040030: 63 2d 74 65 73 74 0a                             c-test.
+[04:40:46]   | =>
+[04:40:46] ----- verify round 2/2 -----
+[04:40:46] $ mw.b 0x51000000 0xa5 0x20000
+[04:40:46]   | mw.b 0x51000000 0xa5 0x20000
+[04:40:46]   | =>
+[04:40:46] $ load mmc 0:1 0x51000000 testfile
+[04:40:46]   | load mmc 0:1 0x51000000 testfile
+[04:40:46]   | 131072 bytes read in 32 ms (3.9 MiB/s)
+[04:40:46]   | =>
+[04:40:46] $ crc32 0x51000000 0x20000
+[04:40:46]   | crc32 0x51000000 0x20000
+[04:40:46]   | CRC32 for 51000000 ... 5101ffff ==> 7e8e43c2
+[04:40:46]   | =>
+[04:40:46] ===== session end =====
+[04:40:46] VERDICT PASS: crc32=['7E8E43C2'] accepted=['7E8E43C2']
