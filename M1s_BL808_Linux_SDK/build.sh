@@ -9,7 +9,6 @@ CMAKE=$SHELL_DIR/toolchain/cmake/bin/
 LINUX_CROSS_PREFIX=$SHELL_DIR/toolchain/linux_toolchain/bin/riscv64-unknown-linux-gnu-
 NEWLIB_ELF_CROSS_PREFIX=$SHELL_DIR/toolchain/elf_newlib_toolchain/bin/riscv64-unknown-elf-
 OPENSBI_CROSS_PREFIX=riscv64-linux-gnu-
-OPENSBI_BUILD_DIR=$SHELL_DIR/opensbi-0.6-808/build-system-gcc-1m
 
 BUILD_TARGET=$1
 
@@ -40,19 +39,34 @@ build_linux_config()
     make ARCH=riscv CROSS_COMPILE=$LINUX_CROSS_PREFIX menuconfig -j$(nproc)
 }
 
-build_opensbi(){
+# Vendor OpenSBI (opensbi-0.6-808) paths are intentionally disabled: the only
+# OpenSBI in the build chain is the upstream checkout in ../opensbi (generic
+# platform, bl808_defconfig, console-free). Vendor opensbi/u-boot may NOT be
+# built or merged; attempts to rebuild them exit with an error.
+build_opensbi_generic()
+{
     echo " "
-    echo "================== build opensbi ==================="
-    cd $SHELL_DIR/opensbi-0.6-808
-    make O="$OPENSBI_BUILD_DIR" PLATFORM=thead/c910 \
-        CROSS_COMPILE="$OPENSBI_CROSS_PREFIX" PLATFORM_RISCV_ISA=rv64gc \
-        -j"$(nproc)"
-
-    local firmware="$OPENSBI_BUILD_DIR/platform/thead/c910/firmware/fw_jump.bin"
-    python3 -B "$SHELL_DIR/../utils/validate_vendor_opensbi.py" \
-        --elf "${firmware%.bin}.elf" --bin "$firmware" \
-        --cross-prefix "$OPENSBI_CROSS_PREFIX"
+    echo "============ build upstream OpenSBI (generic) ============"
+    local source_dir="$SHELL_DIR/../opensbi"
+    local build_dir="$source_dir/build/bl808-generic"
+    make -C "$source_dir" O="$build_dir" PLATFORM=generic \
+        PLATFORM_DEFCONFIG=bl808_defconfig CROSS_COMPILE="$OPENSBI_CROSS_PREFIX" \
+        PLATFORM_RISCV_ISA=rv64gc PLATFORM_RISCV_ABI=lp64 \
+        FW_TEXT_START=0x53f00000 FW_JUMP_ADDR=0x50000000 \
+        FW_JUMP_FDT_ADDR=0x51ff8000 FW_DYNAMIC=n FW_PAYLOAD=n -j"$(nproc)"
+    local firmware="$build_dir/platform/generic/firmware/fw_jump.bin"
+    local fw_end entry
+    entry=$(LC_ALL=C "${OPENSBI_CROSS_PREFIX}readelf" -h "${firmware%.bin}.elf" | awk '/Entry point address:/ {print $NF}')
+    fw_end=$("${OPENSBI_CROSS_PREFIX}nm" --defined-only "${firmware%.bin}.elf" | awk '$3 == "_fw_end" {print "0x" $1}')
+    [[ "$entry" == 0x53f00000 && -n "$fw_end" ]]
+    # The DT specifies one hart and a 64 KiB heap; reserve its 8 KiB stack.
+    (( fw_end >= 0x53f00000 && fw_end + 8192 + 65536 <= 0x54000000 ))
+    (( $(stat -c %s "$firmware") > 0 && $(stat -c %s "$firmware") <= 0x100000 ))
+    grep -qx '# CONFIG_FDT_SERIAL is not set' "$build_dir/platform/generic/kconfig/.config"
+    grep -qx '# CONFIG_PLATFORM_BL808_UART_TEST is not set' "$build_dir/platform/generic/kconfig/.config"
     cp "$firmware" "$OUT_DIR/fw_jump.bin"
+    cp "$firmware" "$OUT_DIR/fw_jump_generic.bin"
+    echo "Upstream OpenSBI validated: entry=0x53f00000 -> $OUT_DIR/fw_jump.bin"
 }
 
 build_opensbi_uart()
@@ -92,34 +106,9 @@ build_opensbi_uart()
 
 build_uboot_generic()
 {
-    local source_dir="$SHELL_DIR/../opensbi"
-    local build_dir="$source_dir/build/bl808-generic"
-    local stage="$OUT_DIR/uboot_generic"
-    make -C "$source_dir" O="$build_dir" PLATFORM=generic \
-        PLATFORM_DEFCONFIG=bl808_defconfig CROSS_COMPILE="$OPENSBI_CROSS_PREFIX" \
-        PLATFORM_RISCV_ISA=rv64gc PLATFORM_RISCV_ABI=lp64 \
-        FW_TEXT_START=0x53f00000 FW_JUMP_ADDR=0x50000000 \
-        FW_JUMP_FDT_ADDR=0x51ff8000 FW_DYNAMIC=n FW_PAYLOAD=n -j"$(nproc)"
-    local firmware="$build_dir/platform/generic/firmware/fw_jump.bin"
-    local fw_end entry
-    entry=$(LC_ALL=C "${OPENSBI_CROSS_PREFIX}readelf" -h "${firmware%.bin}.elf" | awk '/Entry point address:/ {print $NF}')
-    fw_end=$("${OPENSBI_CROSS_PREFIX}nm" --defined-only "${firmware%.bin}.elf" | awk '$3 == "_fw_end" {print "0x" $1}')
-    [[ "$entry" == 0x53f00000 && -n "$fw_end" ]]
-    # The DT below specifies one hart and a 64 KiB heap; reserve its 8 KiB stack.
-    (( fw_end >= 0x53f00000 && fw_end + 8192 + 65536 <= 0x54000000 ))
-    (( $(stat -c %s "$firmware") > 0 && $(stat -c %s "$firmware") <= 0x100000 ))
-    grep -qx '# CONFIG_FDT_SERIAL is not set' "$build_dir/platform/generic/kconfig/.config"
-    grep -qx '# CONFIG_PLATFORM_BL808_UART_TEST is not set' "$build_dir/platform/generic/kconfig/.config"
-    mkdir -p "$stage"
-    cp "$OUT_DIR/uboot/hw.dtb.5M" "$stage/hw.dtb.5M"
-    fdtput -p -t s "$stage/hw.dtb.5M" /chosen/opensbi-config compatible opensbi,config
-    fdtput -t x "$stage/hw.dtb.5M" /chosen/opensbi-config heap-size 10000
-    cp "$OUT_DIR/uboot/Image.lz4" "$OUT_DIR/uboot/squashfs_test.img" "$stage/"
-    cp "$firmware" "$stage/fw_jump.bin"
-    cp "$firmware" "$OUT_DIR/fw_jump_generic.bin"
-    python3 -B "$SHELL_DIR/../utils/merge_linux_image.py" --out-dir "$stage"
-    cp "$stage/whole_img_linux.bin" "$OUT_DIR/whole_img_uboot_generic.bin"
-    echo "Generic OpenSBI (console disabled) -> S-mode U-Boot: $OUT_DIR/whole_img_uboot_generic.bin"
+    echo "(uboot_generic is now identical to uboot: the chain is always"
+    echo " upstream generic OpenSBI + ../u-boot. Producing whole_img_uboot.bin)"
+    build_uboot
 }
 
 build_dtb()
@@ -140,11 +129,13 @@ build_uboot()
     make -C "$source_dir" O="$build_dir" CROSS_COMPILE="$OPENSBI_CROSS_PREFIX" m1s_d0_defconfig
     make -C "$source_dir" O="$build_dir" CROSS_COMPILE="$OPENSBI_CROSS_PREFIX" -j"$(nproc)"
     grep -qx 'CONFIG_RISCV_SMODE=y' "$build_dir/.config"
-    # Use the proven vendor runtime first; keep the latest UART-only test intact.
-    build_opensbi
+    build_opensbi_generic
     mkdir -p "$stage"
     cp "$build_dir/u-boot.bin" "$OUT_DIR/u-boot.bin"
     cp "$build_dir/arch/riscv/dts/bl808-d0-m1s.dtb" "$stage/hw.dtb.5M"
+    # opensbi,config + 64 KiB heap patch (the upstream SBI runtime reads it).
+    fdtput -p -t s "$stage/hw.dtb.5M" /chosen/opensbi-config compatible opensbi,config
+    fdtput -t x "$stage/hw.dtb.5M" /chosen/opensbi-config heap-size 10000
     cp "$OUT_DIR/fw_jump.bin" "$stage/fw_jump.bin"
     cp "$OUT_DIR/squashfs_test.img" "$stage/squashfs_test.img"
     # low_load already expands this slot at 0x50000000, the U-Boot entry.
@@ -176,22 +167,6 @@ build_clean_load()
     rm -rf $SHELL_DIR/bl_mcu_sdk_bl808/build/
 }
 
-build_whole_bin()
-{
-    echo " "
-    echo "================ build whole bin =================="
-    python3 -B "$SHELL_DIR/../utils/merge_linux_image.py" --out-dir "$OUT_DIR"
-}
-
-build_all()
-{
-    build_opensbi
-    build_linux
-    build_dtb
-    build_low_load
-    build_whole_bin
-}
-
 clean_all()
 {
     echo " "
@@ -202,17 +177,18 @@ clean_all()
     cd $SHELL_DIR/linux-5.10.4-808
     make ARCH=riscv CROSS_COMPILE=$LINUX_CROSS_PREFIX mrproper
     echo " "
-    echo "================== clean opensbi ==================="
-    cd $SHELL_DIR/opensbi-0.6-808
-    make O="$OPENSBI_BUILD_DIR" PLATFORM=thead/c910 CROSS_COMPILE="$OPENSBI_CROSS_PREFIX" distclean
-
+    echo "=============== clean upstream opensbi ==============="
+    rm -rf "$SHELL_DIR/../opensbi/build/bl808-generic"
+    rm -rf "$SHELL_DIR/../opensbi/build/bl808-uart-test"
 }
 
 case "$BUILD_TARGET" in
 --help)
-    TARGET="kernel|kernel_config|opensbi|opensbi_uart|uboot|uboot_generic|dtb|low_load|clean_load|whole_bin|all"
+    TARGET="kernel|kernel_config|opensbi_uart|uboot|uboot_generic|dtb|low_load|clean_load|clean_all"
     USAGE="usage $0 [$TARGET]"
     echo $USAGE
+    echo "(disabled targets: opensbi, whole_bin, all — vendor OpenSBI/XIP-Linux"
+    echo " rebuild paths are removed; they exit with an error)"
     exit 0
     ;;
 
@@ -222,8 +198,13 @@ kernel)
 kernel_config)
     build_linux_config
     ;;
-opensbi)
-    build_opensbi
+opensbi|whole_bin|all)
+    echo "ERROR: target '$BUILD_TARGET' is disabled: vendor OpenSBI (opensbi-0.6-808)"
+    echo "       and the vendor XIP-Linux whole-image path are removed from this script."
+    echo "hint:  ./build.sh uboot    = upstream OpenSBI(generic) + ../u-boot chain"
+    echo "       ./build.sh opensbi_uart = local OpenSBI UART bring-up smoke test"
+    echo "       low_load/dtb/kernel targets are unchanged."
+    exit 1
     ;;
 opensbi_uart)
     build_opensbi_uart
@@ -243,14 +224,8 @@ low_load)
 clean_load)
     build_clean_load
     ;;
-whole_bin)
-    build_whole_bin
-    ;;
 clean_all)
     clean_all
-    ;;
-all)
-    build_all
     ;;
 *)
     echo $USAGE

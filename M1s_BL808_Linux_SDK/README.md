@@ -8,7 +8,7 @@ bl808 Linux
 ├── bl_mcu_sdk_bl808  # bl_mcu_sdk for build low load bin
 ├── build.sh          # build script
 ├── linux-5.10.4-808  # linux kernel code
-├── opensbi-0.6-808   # opensbi code
+├── opensbi-0.6-808   # vendor OpenSBI (historical reference, not built)
 ├── out               # bin file output dir
 ├── toolchain         # build need toolchain
 └── README.md         # readme file
@@ -35,11 +35,13 @@ curl https://occ-oss-prod.oss-cn-hangzhou.aliyuncs.com/resource//1663142514282/X
 
 OpenSBI uses the system RISC-V GCC toolchain (`riscv64-linux-gnu-gcc`),
 available on Debian via `sudo apt install gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu`.
-It builds the vendor OpenSBI 0.6 with `rv64gc`, `lp64` and the default `-O2` into
-`opensbi-0.6-808/build-system-gcc-1m`. OpenSBI runs at `0x53f00000` in a 1 MiB
-PSRAM region reserved with `no-map` in the DTB. The build checks the binary,
-ELF entry/load addresses, BSS and per-hart scratch/stack before updating
-`out/fw_jump.bin`. This vendor version has no separate firmware heap.
+The OpenSBI in the chain is the upstream checkout at `../opensbi` (generic
+platform, `bl808_defconfig`, console-free; see the "Generic OpenSBI" section).
+It builds with `rv64gc`, `lp64` and the default `-O2` and runs at
+`0x53f00000` in a 1 MiB PSRAM region reserved with `no-map` in the DTB,
+with a 64 KiB OpenSBI heap configured via `/chosen/opensbi-config` in the
+copied DTB. The legacy vendor OpenSBI 0.6 in `opensbi-0.6-808/` is kept only
+as a historical reference; `build.sh` no longer builds or merges it.
 The kernel and low_load continue to use the vendor toolchains above.
 
 The whole image has a dedicated 1 MiB OpenSBI slot at relative offset
@@ -52,15 +54,17 @@ image together. The old 48 KiB loader is incompatible with this layout.**
 
 Step by step
 
-For the first OpenSBI -> S-mode U-Boot handoff, run `./build.sh uboot`.
-The separate `u-boot/` checkout uses OpenBouffalo tag `bl808-2023-02-19`
-on branch `bl808-m1s-bringup`, with `m1s_d0_defconfig`. This builds RV64
-S-mode U-Boot at `0x50000000`, 2 Mbps UART and no autoboot. It uses the
-working vendor OpenSBI at `0x53f00000`, not the latest UART-only test.
-U-Boot's DT limits usable PSRAM to 63 MiB to protect OpenSBI. MMC and network
-are disabled for this first prompt check; M0/SD interrupt handling is a later
-step. The output is **`out/whole_img_uboot.bin`**, flashed at `0xD2000` with
-the existing 1 MiB-slot low_load. `out/whole_img_linux.bin` is preserved.
+For OpenSBI -> S-mode U-Boot handoff, run `./build.sh uboot`.
+The separate `u-boot/` checkout (OpenBouffalo tag `bl808-2023-02-19`, branch
+`m1s-d0`) builds RV64 S-mode U-Boot at `0x50000000`, 2 Mbps UART and no
+autoboot. The firmware stage is the upstream OpenSBI checkout at `../opensbi`
+(generic platform, `bl808_defconfig`, console-free). The vendor OpenSBI 0.6
+and vendor whole-image rebuild targets (`opensbi`, `whole_bin`, `all`) are
+disabled and exit with an error. U-Boot's DT limits usable PSRAM to 63 MiB
+to protect OpenSBI. MMC is compiled in; SD detection/read is being verified,
+network stays disabled. The output is **`out/whole_img_uboot.bin`**, flashed
+at `0xD2000` with the existing 1 MiB-slot low_load. The preserved
+`out/whole_img_linux.bin` remains on disk.
 
 For UART-only bring-up of the separate root `opensbi/` checkout, run
 `./build.sh opensbi_uart`. This creates **`out/fw_jump_uart.bin`** at entry
@@ -75,50 +79,48 @@ root `opensbi/` Git repository (UART checkpoint commit `6ef75f15`).
 
 ```bash
 ./build.sh --help
-./build.sh opensbi
-./build.sh kernel_config
-./build.sh kernel
+./build.sh opensbi_uart
 ./build.sh dtb
 ./build.sh low_load
-./build.sh whole_bin
+./build.sh uboot
 ```
 
-Or
+Disabled targets (exit with an error): `opensbi`, `whole_bin`, `all` — they
+were vendor OpenSBI / vendor XIP-Linux whole-image rebuild paths.
+
+Or, for a combined build:
 
 ```bash
-./build.sh all
+./build.sh uboot
 ```
 
 Then find the firmwares under out
 
 ```bash
-├── fw_jump.bin
+├── fw_jump.bin          (upstream generic OpenSBI)
+├── fw_jump_generic.bin
+├── fw_jump_uart.bin     (UART-only smoke test, unchanged)
 ├── hw.dtb.5M
 ├── Image.lz4
-├── squashfs_test.img 
-├── low_load_bl808_d0.bin 
-├── low_load_bl808_m0.bin 
-├── merge_7_5Mbin.py
-└── whole_img_linux.bin
+├── squashfs_test.img
+├── low_load_bl808_d0.bin
+├── low_load_bl808_m0.bin
+├── u-boot.bin
+├── whole_img_linux.bin  (preserved from the vendor flow)
+└── whole_img_uboot.bin
 ```
 
-## Generic OpenSBI to S-mode U-Boot
+## Generic OpenSBI to S-mode U-Boot (alias)
 
-After building the working U-Boot image with `./build.sh uboot`, run:
-
-```bash
-./build.sh uboot_generic
-```
-
-This uses the local `../opensbi` generic platform with `bl808_defconfig`.
-OpenSBI console and the UART smoke-test hook are disabled. No additional
-OpenSBI C changes are needed for this build. The existing U-Boot payload is
-reused, with a 64 KiB OpenSBI heap configured in the copied device tree.
+`./build.sh uboot_generic` is now an alias for `./build.sh uboot`: the chain
+is always the upstream `../opensbi` generic platform with `bl808_defconfig`,
+OpenSBI console and UART smoke-test hook disabled, the same `../u-boot`
+payload, and a 64 KiB OpenSBI heap patched into the copied device tree.
 The firmware, one hart's stack, and heap must fit the reserved 1 MiB region.
-Output: `out/whole_img_uboot_generic.bin`, flash address `0xD2000`.
-The vendor-based whole images remain available. Hardware boot is confirmed
-through the S-mode U-Boot serial prompt with 63 MiB DRAM. OpenSBI emits no
-banner. SD/MMC and Linux boot through U-Boot have not been verified.
+Output: `out/whole_img_uboot.bin`, flash address `0xD2000`.
+Hardware boot is confirmed through the S-mode U-Boot serial prompt with
+63 MiB DRAM. OpenSBI emits no banner. SD/MMC bring-up through U-Boot is the
+active step; Linux boot through U-Boot has not been verified.
 
 ## Download Firmware
 
