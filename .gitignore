@@ -14,6 +14,11 @@ Thumbs.db
 *.swp
 *.swo
 
+# mdBook and React Flow build outputs
+/docs/node_modules/
+/docs/book/
+/docs/theme/boot-sequence/
+
 # DevCube BL808 generated images (keep configuration files tracked)
 /BouffaloLabDevCube-v1/chips/bl808/img_create_iot/*.bin
 /BouffaloLabDevCube-v1/chips/bl808/img_create_iot/*.pack

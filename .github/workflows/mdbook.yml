@@ -23,6 +23,12 @@ jobs:
       MDBOOK_VERSION: 0.4.36
     steps:
       - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
       - name: Install mdBook
         run: |
           curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf -y | sh
@@ -31,6 +37,15 @@ jobs:
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v5
+      - name: Install documentation dependencies
+        working-directory: docs
+        run: npm ci
+      - name: Test boot animation model
+        working-directory: docs
+        run: npm test
+      - name: Build React Flow assets
+        working-directory: docs
+        run: npm run build:boot
       - name: Build with mdBook
         working-directory: docs
         run: mdbook build

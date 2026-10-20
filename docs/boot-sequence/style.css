@@ -1,0 +1,124 @@
+#boot-sequence-root {
+  --boot-m0: var(--color-m0, #2563EB);
+  --boot-d0: var(--color-d0, #7C3AED);
+  --boot-flash: var(--color-flash, #D97706);
+  --boot-psram: var(--color-psram, #059669);
+  --boot-xram: var(--color-xram, #64748B);
+  --boot-active: var(--color-active, #F43F5E);
+  --boot-bg: var(--bg, #fff);
+  --boot-fg: var(--fg, #18212f);
+  --boot-muted: color-mix(in srgb, var(--boot-fg) 65%, var(--boot-bg));
+  --boot-border: color-mix(in srgb, var(--boot-fg) 16%, var(--boot-bg));
+  --boot-panel: color-mix(in srgb, var(--boot-fg) 3%, var(--boot-bg));
+  --boot-dot: color-mix(in srgb, var(--boot-fg) 17%, var(--boot-bg));
+  color: var(--boot-fg);
+  margin: 28px 0 40px;
+}
+.boot-player *, .boot-player *::before, .boot-player *::after { box-sizing: border-box; }
+.boot-player { border: 1px solid var(--boot-border); border-radius: 10px; overflow: hidden; background: var(--boot-bg); }
+.boot-player:focus-visible, .boot-player button:focus-visible { outline: 2px solid var(--boot-m0); outline-offset: 3px; }
+.boot-player__header { padding: 24px 26px 0; }
+.boot-player__eyebrow { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; color: var(--boot-muted); font-size: 10px; font-weight: 700; letter-spacing: .12em; }
+.content .boot-player h2 { margin: 16px 0 5px; font-size: 25px; line-height: 1.3; letter-spacing: -.025em; }
+.boot-player__header > p { margin: 0 0 22px; color: var(--boot-muted); font-size: 13px; }
+.boot-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.boot-player button { font: inherit; font-size: 12px; color: var(--boot-fg); cursor: pointer; border: 1px solid var(--boot-border); background: var(--boot-bg); border-radius: 5px; }
+.boot-controls button { display: inline-flex; justify-content: center; align-items: center; gap: 8px; min-height: 36px; padding: 7px 13px; }
+.boot-controls button:disabled { opacity: .35; cursor: default; }
+.boot-controls .boot-play { min-width: 88px; border-color: var(--boot-m0); background: color-mix(in srgb, var(--boot-m0) 10%, var(--boot-bg)); }
+.boot-player[data-scene="d0-sync"] .boot-play { border-color: var(--boot-d0); background: color-mix(in srgb, var(--boot-d0) 10%, var(--boot-bg)); }
+.boot-scene-rail { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 22px; gap: 8px; }
+.boot-scene-rail button { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 5px 5px 0 0; border-bottom: 0; font-size: 11px; text-align: left; color: var(--boot-muted); }
+.boot-scene-rail button > span { font-size: 10px; font-weight: 750; }
+.boot-scene-rail [data-owner="m0"][aria-pressed="true"] { color: var(--boot-fg); border-color: var(--boot-m0); box-shadow: inset 0 3px var(--boot-m0); background: color-mix(in srgb, var(--boot-m0) 7%, var(--boot-bg)); }
+.boot-scene-rail [data-owner="d0"][aria-pressed="true"] { color: var(--boot-fg); border-color: var(--boot-d0); box-shadow: inset 0 3px var(--boot-d0); background: color-mix(in srgb, var(--boot-d0) 7%, var(--boot-bg)); }
+.boot-narration { min-height: 120px; padding: 18px 26px; border-top: 1px solid var(--boot-border); background: var(--boot-panel); }
+.boot-narration__top { display: flex; align-items: center; gap: 10px; }
+.boot-beat-number { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; min-width: 31px; height: 24px; padding: 3px 6px; border: 1px solid var(--boot-border); border-radius: 4px; font: 11px var(--mono-font, monospace); }
+.content .boot-player h3 { margin: 0; font-size: 14px; line-height: 1.45; }
+.boot-beat-count { margin-left: auto; flex-shrink: 0; font-size: 10px; color: var(--boot-muted); }
+.boot-narration > p { margin: 9px 0 0; color: var(--boot-muted); font-size: 12px; line-height: 1.65; }
+.boot-canvas { position: relative; height: clamp(520px, 72vh, 740px); background: var(--boot-bg); }
+.boot-canvas .react-flow { --xy-background-color: var(--boot-bg); --xy-controls-button-background-color: var(--boot-bg); --xy-controls-button-background-color-hover: var(--boot-panel); --xy-controls-button-color: var(--boot-fg); --xy-controls-button-color-hover: var(--boot-fg); --xy-controls-button-border-color: var(--boot-border); }
+.boot-canvas .react-flow__controls { box-shadow: 0 2px 10px #0001; border: 1px solid var(--boot-border); border-radius: 5px; overflow: hidden; }
+.boot-canvas .react-flow__controls button { border-radius: 0; }
+.boot-canvas .react-flow__attribution { background: var(--boot-bg); opacity: .7; font-size: 8px; }
+.boot-canvas .react-flow__attribution a { color: var(--boot-muted); }
+.boot-canvas .react-flow__handle { opacity: 0; pointer-events: none; width: 4px; height: 4px; min-width: 0; min-height: 0; border: 0; }
+.boot-canvas-label { position: absolute; top: 12px; left: 14px; pointer-events: none; font-size: 8px; letter-spacing: .1em; color: var(--boot-muted); }
+.boot-node { --node-color: var(--boot-xram); border: 1px solid color-mix(in srgb, var(--node-color) 45%, var(--boot-bg)); border-top: 3px solid var(--node-color); border-radius: 6px; background: var(--boot-bg); box-shadow: 0 3px 12px #00000008; transition: box-shadow .2s, border-color .2s; }
+.boot-node[data-owner="m0"] { --node-color: var(--boot-m0); }
+.boot-node[data-owner="d0"] { --node-color: var(--boot-d0); }
+.boot-node[data-owner="flash"] { --node-color: var(--boot-flash); }
+.boot-node[data-owner="psram"] { --node-color: var(--boot-psram); }
+.boot-node.is-active { outline: 2px solid var(--boot-active); outline-offset: 3px; box-shadow: 0 0 0 7px color-mix(in srgb, var(--boot-active) 8%, transparent); }
+.boot-node__head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 5px; align-items: baseline; padding: 11px 13px 9px; background: color-mix(in srgb, var(--node-color) 9%, var(--boot-bg)); border-bottom: 1px solid var(--boot-border); }
+.boot-node__head > strong { font-size: 15px; letter-spacing: -.015em; }
+.boot-node__head > span { font-size: 8px; font-weight: 650; letter-spacing: .02em; color: var(--boot-muted); }
+.boot-node__body { padding: 10px 12px; font-size: 11px; }
+.boot-player code, .boot-player .boot-registers dd { padding: 0; background: transparent; color: inherit; font-family: var(--mono-font, monospace); font-size: 11px; white-space: nowrap; }
+.boot-node__rom { display: flex; flex-direction: column; gap: 7px; }
+.boot-node__rom > code { font-size: 9px; }
+.boot-node__rom > small { color: var(--boot-muted); font-size: 9px; }
+.boot-image { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px; margin-bottom: 5px; border-left: 3px solid var(--boot-m0); border-radius: 2px; background: color-mix(in srgb, var(--boot-m0) 7%, var(--boot-bg)); }
+.boot-image--d0 { border-left-color: var(--boot-d0); background: color-mix(in srgb, var(--boot-d0) 7%, var(--boot-bg)); }
+.boot-image > b { font-size: 11px; font-weight: 600; }
+.boot-image.is-read { outline: 1px solid var(--boot-active); }
+.boot-node__foot { margin-top: 7px; color: var(--boot-muted); font-size: 9px; line-height: 1.5; }
+.boot-node__foot > code { font-size: 9px; }
+.boot-cpu-status { display: flex; align-items: center; gap: 6px; min-height: 20px; font-size: 10px; color: var(--boot-muted); }
+.boot-cpu-status > i { width: 5px; height: 5px; border-radius: 50%; background: var(--node-color); }
+.boot-registers { display: grid; grid-template-columns: 1fr auto; gap: 7px 8px; margin: 9px 0 2px; }
+.boot-registers dt { font-size: 10px; color: var(--boot-muted); }
+.boot-registers dd { margin: 0; font-size: 11px; }
+.boot-memory-row { padding: 5px 7px; margin-bottom: 4px; border-radius: 3px; background: var(--boot-panel); border-left: 3px solid var(--boot-border); }
+.boot-memory-row > div { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 3px; }
+.boot-memory-row strong { font-size: 10px; font-weight: 600; }
+.boot-memory-row span { font-size: 8px; color: var(--boot-muted); }
+.boot-memory-row > code { font-size: 10px; color: var(--boot-muted); }
+.boot-memory-row.is-ready { border-left-color: var(--node-color); background: color-mix(in srgb, var(--node-color) 9%, var(--boot-bg)); }
+.boot-memory-row.is-target { outline: 1px solid var(--boot-active); }
+.boot-flags > div { display: flex; flex-direction: column; gap: 4px; padding: 5px 7px; margin-bottom: 4px; border-left: 2px solid var(--boot-border); background: var(--boot-panel); }
+.boot-flags code { font-size: 9px; color: var(--boot-muted); }
+.boot-flags b { min-height: 13px; font: 10px var(--mono-font, monospace); }
+.boot-flags .is-signaled { border-left-color: var(--boot-m0); background: color-mix(in srgb, var(--boot-m0) 9%, var(--boot-bg)); }
+.boot-flags > small { font-size: 8px; color: var(--boot-muted); }
+.boot-psram-state { display: flex; flex-direction: column; gap: 8px; }
+.boot-psram-state > span { color: var(--boot-muted); }
+.boot-psram-state > .is-ready { color: var(--boot-fg); }
+.boot-psram-state > code { font-size: 10px; color: var(--boot-muted); }
+.boot-timeline { height: 3px; background: var(--boot-border); }
+.boot-timeline > span { display: block; height: 100%; background: var(--boot-m0); }
+.boot-player[data-scene="d0-sync"] .boot-timeline > span { background: var(--boot-d0); }
+.boot-detail { min-height: 97px; padding: 16px 24px; background: var(--boot-panel); }
+.boot-detail-label { color: var(--boot-muted); font-size: 9px; font-weight: 700; letter-spacing: .12em; }
+.boot-detail > p { margin: 7px 0 0; font-size: 12px; line-height: 1.65; }
+.boot-player__footer { display: flex; flex-wrap: wrap; gap: 6px 14px; justify-content: space-between; padding: 12px 24px; border-top: 1px solid var(--boot-border); font-size: 10px; color: var(--boot-muted); }
+.boot-legend { display: flex; flex-wrap: wrap; gap: 8px 17px; padding: 0 24px 17px; font-size: 10px; color: var(--boot-muted); }
+.boot-legend > span { display: inline-flex; align-items: center; gap: 5px; }
+.boot-legend > span::before { content: ''; width: 6px; height: 6px; border-radius: 2px; background: var(--boot-m0); }
+.boot-legend [data-color="d0"]::before { background: var(--boot-d0); }
+.boot-legend [data-color="flash"]::before { background: var(--boot-flash); }
+.boot-legend [data-color="psram"]::before { background: var(--boot-psram); }
+.boot-legend [data-color="xram"]::before { background: var(--boot-xram); }
+.boot-legend [data-color="active"]::before { background: var(--boot-active); }
+@supports selector(:has(*)) { .content main:has(#boot-sequence-root) { max-width: 1100px; } }
+@media (max-width: 600px) {
+  .boot-player__header { padding: 19px 16px 0; }
+  .content .boot-player h2 { font-size: 22px; }
+  .boot-controls { gap: 6px; }
+  .boot-controls button { flex: 1; padding: 7px 8px; font-size: 11px; gap: 5px; }
+  .boot-controls .boot-play { min-width: 0; }
+  .boot-scene-rail button { padding: 10px 8px; font-size: 10px; }
+  .boot-narration { padding: 16px; min-height: 139px; }
+  .boot-canvas { height: 550px; }
+  .boot-detail { padding: 16px; }
+  .boot-player__footer { padding: 12px 16px; }
+  .boot-legend { padding: 0 16px 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .boot-node { transition: none; } }
+@media print {
+  .boot-controls, .boot-scene-rail, .boot-player__footer, .boot-canvas .react-flow__controls { display: none; }
+  .boot-player { break-inside: avoid; }
+  .boot-canvas { height: 650px; }
+}
