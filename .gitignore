@@ -4,6 +4,7 @@ logs/
 
 # Python venv
 tools/venv/
+__pycache__/
 
 # OS / editor
 .DS_Store
