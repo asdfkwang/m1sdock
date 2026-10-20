@@ -1,0 +1,30 @@
+{
+  "saved": {
+    "clock": 0,
+    "status_enable": 41877563,
+    "signal_enable": 0,
+    "mask0": 0,
+    "mask1": 0,
+    "priority81": 0,
+    "s_enable2": 0,
+    "m_threshold": 7,
+    "s_threshold": 7
+  },
+  "observations": [
+    {
+      "stage": "initial",
+      "sdh": 0,
+      "m0ic0": 1024,
+      "m0ic1": 266752,
+      "plic": 393216
+    },
+    {
+      "stage": "isolated",
+      "sdh": 0,
+      "m0ic0": 1024,
+      "m0ic1": 266752,
+      "plic": 393216
+    }
+  ],
+  "restored": true
+}

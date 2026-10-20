@@ -1,0 +1,265 @@
+
+>>> version
+version
+U-Boot 2023.04-rc2-g15b4a6348b9-dirty (Oct 19 2026 - 22:02:25 -0400)
+
+riscv64-linux-gnu-gcc (Debian 14.2.0-19) 14.2.0
+GNU ld (GNU Binutils for Debian) 2.44
+=> 
+
+>>> bdinfo
+bdinfo
+boot_params = 0x0000000000000000
+DRAM bank   = 0x0000000000000000
+-> start    = 0x0000000050000000
+-> size     = 0x0000000003f00000
+flashstart  = 0x0000000000000000
+flashsize   = 0x0000000000000000
+flashoffset = 0x0000000000000000
+baudrate    = 2000000 bps
+relocaddr   = 0x0000000053e9c000
+reloc off   = 0x0000000003e9c000
+Build       = 64-bit
+fdt_blob    = 0x0000000053a7a100
+new_fdt     = 0x0000000053a7a100
+fdt_size    = 0x0000000000002d00
+lmb_dump_all:
+ memory.cnt  = 0x1
+ memory[0]	[0x50000000-0x53efffff], 0x03f00000 bytes flags: 0
+ reserved.cnt  = 0x4
+ reserved[0]	[0x52a72000-0x53efffff], 0x0148e000 bytes flags: 0
+ reserved[1]	[0x53a783c0-0x53efffff], 0x00487c40 bytes flags: 0
+ reserved[2]	[0x53f00000-0x53f5ffff], 0x00060000 bytes flags: 4
+ reserved[3]	[0x53f00000-0x53ffffff], 0x00100000 bytes flags: 4
+devicetree  = board
+=> 
+
+>>> md.l 0x200008c4 1
+md.l 0x200008c4 1
+200008c4: 00400003                             ..@.
+=> 
+
+>>> md.l 0x200008c8 1
+md.l 0x200008c8 1
+200008c8: 00400003                             ..@.
+=> 
+
+>>> md.l 0x200008cc 1
+md.l 0x200008cc 1
+200008cc: 00400003                             ..@.
+=> 
+
+>>> md.l 0x200008d0 1
+md.l 0x200008d0 1
+200008d0: 00400003                             ..@.
+=> 
+
+>>> md.l 0x200008d4 1
+md.l 0x200008d4 1
+200008d4: 00400017                             ..@.
+=> 
+
+>>> md.l 0x200008d8 1
+md.l 0x200008d8 1
+200008d8: 00400017                             ..@.
+=> 
+
+>>> mw.l 0x200008c4 0x400017
+mw.l 0x200008c4 0x400017
+=> 
+
+>>> mw.l 0x200008c8 0x400017
+mw.l 0x200008c8 0x400017
+=> 
+
+>>> mw.l 0x200008cc 0x400017
+mw.l 0x200008cc 0x400017
+=> 
+
+>>> mw.l 0x200008d0 0x400017
+mw.l 0x200008d0 0x400017
+=> 
+
+>>> mw.l 0x200008d4 0x400017
+mw.l 0x200008d4 0x400017
+=> 
+
+>>> mw.l 0x200008d8 0x400017
+mw.l 0x200008d8 0x400017
+=> 
+
+>>> mmc rescan
+mmc rescan
+=> 
+
+>>> mmc info
+mmc info
+Device: mmc@20060000
+Manufacturer ID: 1b
+OEM: 534d
+Name: EC1S5 
+Bus Speed: 50000000
+Mode: SD High Speed (50MHz)
+Rd Block Len: 512
+SD version 3.0
+High Capacity: Yes
+Capacity: 59.7 GiB
+Bus Width: 4-bit
+Erase Group Size: 512 Bytes
+=> 
+
+>>> mmc part
+mmc part
+
+Partition Map for MMC device 0  --   Partition Type: DOS
+
+Part	Start Sector	Num Sectors	UUID		Type
+  1	2048      	125171712 	6f2fe942-01	0c Boot
+=> 
+
+>>> fatls mmc 0:1
+fatls mmc 0:1
+       55   hello.txt
+   131072   testfile
+
+2 file(s), 0 dir(s)
+
+=> 
+
+>>> mw.b 0x51000000 0xa5 0x20000
+mw.b 0x51000000 0xa5 0x20000
+=> 
+
+>>> load mmc 0:1 0x51000000 testfile
+load mmc 0:1 0x51000000 testfile
+131072 bytes read in 32 ms (3.9 MiB/s)
+=> 
+
+>>> printenv filesize
+printenv filesize
+filesize=20000
+=> 
+
+>>> crc32 0x51000000 0x20000
+crc32 0x51000000 0x20000
+CRC32 for 51000000 ... 5101ffff ==> 7e8e43c2
+=> 
+
+>>> mw.b 0x51040000 0xa5 0x37
+mw.b 0x51040000 0xa5 0x37
+=> 
+
+>>> load mmc 0:1 0x51040000 hello.txt
+load mmc 0:1 0x51040000 hello.txt
+55 bytes read in 20 ms (2 KiB/s)
+=> 
+
+>>> printenv filesize
+printenv filesize
+filesize=37
+=> 
+
+>>> crc32 0x51040000 0x37
+crc32 0x51040000 0x37
+CRC32 for 51040000 ... 51040036 ==> bdb1a907
+=> 
+
+>>> mw.b 0x51000000 0xa5 0x20000
+mw.b 0x51000000 0xa5 0x20000
+=> 
+
+>>> load mmc 0:1 0x51000000 testfile
+load mmc 0:1 0x51000000 testfile
+131072 bytes read in 32 ms (3.9 MiB/s)
+=> 
+
+>>> printenv filesize
+printenv filesize
+filesize=20000
+=> 
+
+>>> crc32 0x51000000 0x20000
+crc32 0x51000000 0x20000
+CRC32 for 51000000 ... 5101ffff ==> 7e8e43c2
+=> 
+
+>>> mw.b 0x51040000 0xa5 0x37
+mw.b 0x51040000 0xa5 0x37
+=> 
+
+>>> load mmc 0:1 0x51040000 hello.txt
+load mmc 0:1 0x51040000 hello.txt
+55 bytes read in 20 ms (2 KiB/s)
+=> 
+
+>>> printenv filesize
+printenv filesize
+filesize=37
+=> 
+
+>>> crc32 0x51040000 0x37
+crc32 0x51040000 0x37
+CRC32 for 51040000 ... 51040036 ==> bdb1a907
+=> 
+
+>>> md.b 0x51040000 0x37
+md.b 0x51040000 0x37
+51040000: 4d 31 73 20 44 6f 63 6b 20 53 44 48 43 20 74 65  M1s Dock SDHC te
+51040010: 73 74 20 63 61 72 64 0a 6d 61 72 6b 65 72 3a 20  st card.marker: 
+51040020: 6d 31 73 64 6f 63 6b 2d 75 62 6f 6f 74 2d 6d 6d  m1sdock-uboot-mm
+51040030: 63 2d 74 65 73 74 0a                             c-test.
+=> 
+
+>>> mw.l 0x200008c4 0x400003
+mw.l 0x200008c4 0x400003
+=> 
+
+>>> mw.l 0x200008c8 0x400003
+mw.l 0x200008c8 0x400003
+=> 
+
+>>> mw.l 0x200008cc 0x400003
+mw.l 0x200008cc 0x400003
+=> 
+
+>>> mw.l 0x200008d0 0x400003
+mw.l 0x200008d0 0x400003
+=> 
+
+>>> mw.l 0x200008d4 0x400017
+mw.l 0x200008d4 0x400017
+=> 
+
+>>> mw.l 0x200008d8 0x400017
+mw.l 0x200008d8 0x400017
+=> 
+
+>>> md.l 0x200008c4 1
+md.l 0x200008c4 1
+200008c4: 00400003                             ..@.
+=> 
+
+>>> md.l 0x200008c8 1
+md.l 0x200008c8 1
+200008c8: 00400003                             ..@.
+=> 
+
+>>> md.l 0x200008cc 1
+md.l 0x200008cc 1
+200008cc: 00400003                             ..@.
+=> 
+
+>>> md.l 0x200008d0 1
+md.l 0x200008d0 1
+200008d0: 00400003                             ..@.
+=> 
+
+>>> md.l 0x200008d4 1
+md.l 0x200008d4 1
+200008d4: 00400017                             ..@.
+=> 
+
+>>> md.l 0x200008d8 1
+md.l 0x200008d8 1
+200008d8: 00400017                             ..@.
+=> 

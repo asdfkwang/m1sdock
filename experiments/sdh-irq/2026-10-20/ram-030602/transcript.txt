@@ -1,0 +1,77 @@
+
+>>> version
+version
+U-Boot 2023.04-rc2-g15b4a6348b9-dirty (Oct 19 2026 - 22:02:25 -0400)
+
+riscv64-linux-gnu-gcc (Debian 14.2.0-19) 14.2.0
+GNU ld (GNU Binutils for Debian) 2.44
+=> 
+
+>>> bdinfo
+bdinfo
+boot_params = 0x0000000000000000
+DRAM bank   = 0x0000000000000000
+-> start    = 0x0000000050000000
+-> size     = 0x0000000003f00000
+flashstart  = 0x0000000000000000
+flashsize   = 0x0000000000000000
+flashoffset = 0x0000000000000000
+baudrate    = 2000000 bps
+relocaddr   = 0x0000000053e9c000
+reloc off   = 0x0000000003e9c000
+Build       = 64-bit
+fdt_blob    = 0x0000000053a7a100
+new_fdt     = 0x0000000053a7a100
+fdt_size    = 0x0000000000002d00
+lmb_dump_all:
+ memory.cnt  = 0x1
+ memory[0]	[0x50000000-0x53efffff], 0x03f00000 bytes flags: 0
+ reserved.cnt  = 0x4
+ reserved[0]	[0x52a76000-0x53efffff], 0x0148a000 bytes flags: 0
+ reserved[1]	[0x53a783c0-0x53efffff], 0x00487c40 bytes flags: 0
+ reserved[2]	[0x53f00000-0x53f5ffff], 0x00060000 bytes flags: 4
+ reserved[3]	[0x53f00000-0x53ffffff], 0x00100000 bytes flags: 4
+devicetree  = board
+=> 
+
+>>> mw.b 0x50100000 0 0x10000
+mw.b 0x50100000 0 0x10000
+=> 
+
+>>> loads
+loads
+## Ready for S-Record download ...
+
+....
+## First Load Addr = 0x50100000
+## Last  Load Addr = 0x50100DA7
+## Total Size      = 0x00000DA8 = 3496 Bytes
+## Start Addr      = 0x50100000
+=> 
+
+>>> crc32 0x50100000 0xda8
+crc32 0x50100000 0xda8
+CRC32 for 50100000 ... 50100da7 ==> 77dc4aec
+=> 
+
+>>> go 0x50100000
+go 0x50100000
+## Starting application at 0x50100000 ...
+
+BL808 S-MODE IRQ RAM PROBE v1
+original_stvec=0x0000000053e9cf80 original_sstatus=0x8000000200006000 original_sie=0x0000000000000000 
+FORCED EVENT cycle=0x0000000000000001 
+irq_count=0x0000000000000002 scause=0x8000000000000009 claim=0x0000000000000051 sdh=0x0000000000000000 m0ic=0x0000000000000000 
+FAIL: forced IRQ handler
+RESTORED configuration and supervisor trap context; returning to U-Boot
+stages_passed=0x0000000000000000 
+## Application terminated, rc = 0x1
+=> 
+
+>>> version
+version
+U-Boot 2023.04-rc2-g15b4a6348b9-dirty (Oct 19 2026 - 22:02:25 -0400)
+
+riscv64-linux-gnu-gcc (Debian 14.2.0-19) 14.2.0
+GNU ld (GNU Binutils for Debian) 2.44
+=> 

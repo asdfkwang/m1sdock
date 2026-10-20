@@ -1,0 +1,86 @@
+[
+  {
+    "profile": "original",
+    "card_identified": false,
+    "gpio": [
+      4194307,
+      4194307,
+      4194307,
+      4194307,
+      4194327,
+      4194327
+    ],
+    "sdh_clock_word": 65479
+  },
+  {
+    "profile": "pull-up-only",
+    "card_identified": true,
+    "gpio": [
+      4194323,
+      4194323,
+      4194323,
+      4194323,
+      4194327,
+      4194327
+    ],
+    "sdh_clock_word": 263,
+    "loaded_131072_bytes": true,
+    "crc_match": true
+  },
+  {
+    "profile": "drive1-only",
+    "card_identified": false,
+    "gpio": [
+      4194311,
+      4194311,
+      4194311,
+      4194311,
+      4194327,
+      4194327
+    ],
+    "sdh_clock_word": 65479
+  },
+  {
+    "profile": "pull-up-drive1",
+    "card_identified": true,
+    "gpio": [
+      4194327,
+      4194327,
+      4194327,
+      4194327,
+      4194327,
+      4194327
+    ],
+    "sdh_clock_word": 263,
+    "loaded_131072_bytes": true,
+    "crc_match": true
+  },
+  {
+    "profile": "original-repeat",
+    "card_identified": false,
+    "gpio": [
+      4194307,
+      4194307,
+      4194307,
+      4194307,
+      4194327,
+      4194327
+    ],
+    "sdh_clock_word": 65479
+  },
+  {
+    "profile": "pull-up-drive1-repeat",
+    "card_identified": true,
+    "gpio": [
+      4194327,
+      4194327,
+      4194327,
+      4194327,
+      4194327,
+      4194327
+    ],
+    "sdh_clock_word": 263,
+    "loaded_131072_bytes": true,
+    "crc_match": true
+  }
+]

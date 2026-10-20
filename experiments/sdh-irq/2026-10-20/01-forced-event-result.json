@@ -1,0 +1,72 @@
+{
+  "saved": {
+    "clock": 0,
+    "status_enable": 41877563,
+    "signal_enable": 0,
+    "mask0": 0,
+    "mask1": 0,
+    "priority81": 0,
+    "s_enable2": 0,
+    "m_threshold": 7,
+    "s_threshold": 7
+  },
+  "observations": [
+    {
+      "stage": "initial",
+      "sdh": 0,
+      "m0ic0": 1024,
+      "m0ic1": 266752,
+      "plic": 393216
+    },
+    {
+      "stage": "isolated",
+      "sdh": 0,
+      "m0ic0": 0,
+      "m0ic1": 0,
+      "plic": 262144
+    },
+    {
+      "stage": "cycle1-before",
+      "sdh": 0,
+      "m0ic0": 0,
+      "m0ic1": 0,
+      "plic": 262144
+    },
+    {
+      "stage": "cycle1-forced",
+      "sdh": 98304,
+      "m0ic0": 131072,
+      "m0ic1": 0,
+      "plic": 393216
+    },
+    {
+      "stage": "cycle1-cleared",
+      "sdh": 0,
+      "m0ic0": 0,
+      "m0ic1": 0,
+      "plic": 262144
+    },
+    {
+      "stage": "cycle2-before",
+      "sdh": 0,
+      "m0ic0": 0,
+      "m0ic1": 0,
+      "plic": 262144
+    },
+    {
+      "stage": "cycle2-forced",
+      "sdh": 98304,
+      "m0ic0": 131072,
+      "m0ic1": 0,
+      "plic": 393216
+    },
+    {
+      "stage": "cycle2-cleared",
+      "sdh": 0,
+      "m0ic0": 0,
+      "m0ic1": 0,
+      "plic": 262144
+    }
+  ],
+  "restored": true
+}

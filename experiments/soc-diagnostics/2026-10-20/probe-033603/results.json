@@ -1,0 +1,195 @@
+{
+  "CSR": [
+    {
+      "value": 0,
+      "fault": 0,
+      "stval": 0,
+      "name": "satp"
+    },
+    {
+      "value": 6413159726,
+      "fault": 0,
+      "stval": 0,
+      "name": "cycle"
+    },
+    {
+      "value": 0,
+      "fault": 2,
+      "stval": 973088115,
+      "name": "pmpcfg0"
+    },
+    {
+      "value": 0,
+      "fault": 2,
+      "stval": 989865331,
+      "name": "pmpaddr0"
+    },
+    {
+      "value": 0,
+      "fault": 2,
+      "stval": 805315955,
+      "name": "mstatus"
+    },
+    {
+      "value": 0,
+      "fault": 2,
+      "stval": 808461683,
+      "name": "mideleg"
+    }
+  ],
+  "SBI_TIMER": [
+    {
+      "sample": 0,
+      "error": 0,
+      "count": 1,
+      "scause": 9223372036854775813,
+      "elapsed_ticks": 10423
+    },
+    {
+      "sample": 1,
+      "error": 0,
+      "count": 2,
+      "scause": 9223372036854775813,
+      "elapsed_ticks": 10421
+    },
+    {
+      "sample": 2,
+      "error": 0,
+      "count": 3,
+      "scause": 9223372036854775813,
+      "elapsed_ticks": 10421
+    }
+  ],
+  "READ32": [
+    {
+      "address": 1342177280,
+      "value": 2226029098,
+      "fault": 0,
+      "stval": 0
+    },
+    {
+      "address": 1343225856,
+      "value": 4111,
+      "fault": 0,
+      "stval": 0
+    },
+    {
+      "address": 1358954496,
+      "value": 1437324690,
+      "fault": 0,
+      "stval": 0
+    },
+    {
+      "address": 1408237568,
+      "value": 0,
+      "fault": 5,
+      "stval": 1408237568
+    },
+    {
+      "address": 1408241664,
+      "value": 0,
+      "fault": 5,
+      "stval": 1408241664
+    },
+    {
+      "address": 1408630780,
+      "value": 0,
+      "fault": 5,
+      "stval": 1408630780
+    },
+    {
+      "address": 1408630784,
+      "value": 4294967295,
+      "fault": 0,
+      "stval": 0
+    },
+    {
+      "address": 1409286140,
+      "value": 4294967295,
+      "fault": 0,
+      "stval": 0
+    },
+    {
+      "address": 1056440320,
+      "value": 1056440328,
+      "fault": 0,
+      "stval": 0
+    },
+    {
+      "address": 1073741824,
+      "value": 0,
+      "fault": 0,
+      "stval": 0
+    },
+    {
+      "address": 1476395008,
+      "value": 3875017111,
+      "fault": 0,
+      "stval": 0
+    },
+    {
+      "address": 536871056,
+      "value": 196815,
+      "fault": 0,
+      "stval": 0
+    },
+    {
+      "address": 537264164,
+      "value": 32899072,
+      "fault": 0,
+      "stval": 0
+    },
+    {
+      "address": 805314568,
+      "value": 1245203,
+      "fault": 0,
+      "stval": 0
+    },
+    {
+      "address": 3758100488,
+      "value": 393216,
+      "fault": 0,
+      "stval": 0
+    }
+  ],
+  "CYCLE_TIME": [
+    {
+      "sample": 0,
+      "ticks": 100000,
+      "cycles": 37999843,
+      "cycles_per_tick": 379
+    },
+    {
+      "sample": 1,
+      "ticks": 100000,
+      "cycles": 37999918,
+      "cycles_per_tick": 379
+    },
+    {
+      "sample": 2,
+      "ticks": 100000,
+      "cycles": 37999638,
+      "cycles_per_tick": 379
+    }
+  ],
+  "PSRAM_SCRATCH": [
+    {
+      "bytes": 524288,
+      "errors": 0,
+      "write_ticks": 3088,
+      "read_ticks": 2106
+    }
+  ],
+  "cycle_time_mhz_assuming_1MHz_time": [
+    379.99843,
+    379.99918,
+    379.99638
+  ],
+  "application_returned_zero": true,
+  "limits": [
+    "PMP CSR contents unavailable from S-mode; faults do not identify a specific PMP entry.",
+    "Only sampled memory reads; no firmware stores or execution-permission test.",
+    "Cycle/time ratio is not an external frequency measurement.",
+    "Scratch accesses may be served by cache; not a full DRAM test."
+  ]
+}

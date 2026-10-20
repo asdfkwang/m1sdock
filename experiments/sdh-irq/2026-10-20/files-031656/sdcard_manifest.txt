@@ -1,0 +1,24 @@
+=== SD card test manifest ===
+device      : /dev/sdd (STORAGE DEVICE, 59.7G)
+partition   : /dev/sdd1 (MBR, FAT32, label M1STEST)
+write path  : mtools (no mount)
+verify      : readback CRC match (7E8E43C2)
+files
+  hello.txt : size=55 (0x37 bytes)
+  testfile  : size=131072 (0x20000 bytes)
+CRC-32
+  hello.txt : BDB1A907
+  testfile  : 7E8E43C2
+
+=== U-Boot expected output (boot chain already on flash) ===
+=> mmc list
+=> mmc dev 0
+=> mmc rescan
+=> mmc info                     # shows detected card size/bus width
+=> fatls mmc 0:1                # must list hello.txt and testfile
+=> load mmc 0:1 0x53000000 testfile
+=> crc32 0x53000000 0x20000
+   expected CRC: 7E8E43C2      # must match the crc32 output for testfile
+=> load mmc 0:1 0x53000000 hello.txt
+=> md.b 0x53000000 0x37
+   expected: "M1s Dock SDHC test card..." text

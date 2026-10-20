@@ -1,0 +1,10 @@
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.01s
+     Running unittests src/main.rs (bdb/target/debug/deps/bdb-c18c0fd76be32fd7)
+
+running 3 tests
+test core::tests::esc ... ok
+test core::tests::hex_parse ... ok
+test state::tests::d0_output_without_login_is_not_m0_only ... ok
+
+test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

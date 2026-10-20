@@ -1,0 +1,214 @@
+
+>>> version
+version
+U-Boot 2023.04-rc2-g15b4a6348b9-dirty (Oct 19 2026 - 22:02:25 -0400)
+
+riscv64-linux-gnu-gcc (Debian 14.2.0-19) 14.2.0
+GNU ld (GNU Binutils for Debian) 2.44
+=> 
+
+>>> help mmc
+help mmc
+mmc - MMC sub system
+
+Usage:
+mmc info - display info of the current MMC device
+mmc read addr blk# cnt
+mmc write addr blk# cnt
+mmc erase blk# cnt
+mmc rescan [mode]
+mmc part - lists available partition on current mmc device
+mmc dev [dev] [part] [mode] - show or set current mmc device [partition] and set mode
+  - the required speed mode is passed as the index from the following list
+    [MMC_LEGACY, MMC_HS, SD_HS, MMC_HS_52, MMC_DDR_52, UHS_SDR12, UHS_SDR25,
+    UHS_SDR50, UHS_DDR50, UHS_SDR104, MMC_HS_200, MMC_HS_400, MMC_HS_400_ES]
+mmc list - lists available devices
+mmc wp [PART] - power on write protect boot partitions
+  arguments:
+   PART - [0|1]
+       : 0 - first boot partition, 1 - second boot partition
+         if not assigned, write protect all boot partitions
+mmc hwpartition <USER> <GP> <MODE> - does hardware partitioning
+  arguments (sizes in 512-byte blocks):
+   USER - <user> <enh> <start> <cnt> <wrrel> <{on|off}>
+	: sets user data area attributes
+   GP - <{gp1|gp2|gp3|gp4}> <cnt> <enh> <wrrel> <{on|off}>
+	: general purpose partition
+   MODE - <{check|set|complete}>
+	: mode, complete set partitioning completed
+  WARNING: Partitioning is a write-once setting once it is set to complete.
+  Power cycling is required to initialize partitions after set to complete.
+mmc setdsr <value> - set DSR register value
+
+=> 
+
+>>> md.l 0x200008c4 1
+md.l 0x200008c4 1
+200008c4: 00400003                             ..@.
+=> 
+
+>>> md.l 0x200008c8 1
+md.l 0x200008c8 1
+200008c8: 00400003                             ..@.
+=> 
+
+>>> md.l 0x200008cc 1
+md.l 0x200008cc 1
+200008cc: 00400003                             ..@.
+=> 
+
+>>> md.l 0x200008d0 1
+md.l 0x200008d0 1
+200008d0: 00400003                             ..@.
+=> 
+
+>>> md.l 0x200008d4 1
+md.l 0x200008d4 1
+200008d4: 00400017                             ..@.
+=> 
+
+>>> md.l 0x200008d8 1
+md.l 0x200008d8 1
+200008d8: 00400017                             ..@.
+=> 
+
+>>> md.b 0x20060028 1
+md.b 0x20060028 1
+20060028: 00                                               .
+=> 
+
+>>> mw.l 0x200008c4 0x400017
+mw.l 0x200008c4 0x400017
+=> 
+
+>>> mw.l 0x200008c8 0x400017
+mw.l 0x200008c8 0x400017
+=> 
+
+>>> mw.l 0x200008cc 0x400017
+mw.l 0x200008cc 0x400017
+=> 
+
+>>> mw.l 0x200008d0 0x400017
+mw.l 0x200008d0 0x400017
+=> 
+
+>>> mw.l 0x200008d4 0x400017
+mw.l 0x200008d4 0x400017
+=> 
+
+>>> mw.l 0x200008d8 0x400017
+mw.l 0x200008d8 0x400017
+=> 
+
+MODE: sdk-pads
+
+>>> mmc list
+mmc list
+mmc@20060000: 0
+=> 
+
+>>> mmc dev 0
+mmc dev 0
+switch to partitions #0, OK
+mmc0 is current device
+=> 
+
+>>> echo $?
+echo $?
+$?
+=> 
+
+>>> mmc info
+mmc info
+Device: mmc@20060000
+Manufacturer ID: 1b
+OEM: 534d
+Name: EC1S5 
+Bus Speed: 50000000
+Mode: SD High Speed (50MHz)
+Rd Block Len: 512
+SD version 3.0
+High Capacity: Yes
+Capacity: 59.7 GiB
+Bus Width: 4-bit
+Erase Group Size: 512 Bytes
+=> 
+
+>>> echo $?
+echo $?
+$?
+=> 
+
+>>> md.l 0x20060024 7
+md.l 0x20060024 7
+20060024: 01f60000 00000f06 000e0107 00000000  ................
+20060034: 027f003b 00000000 40000000           ;..........@
+=> 
+
+>>> mmc info
+mmc info
+Device: mmc@20060000
+Manufacturer ID: 1b
+OEM: 534d
+Name: EC1S5 
+Bus Speed: 50000000
+Mode: SD High Speed (50MHz)
+Rd Block Len: 512
+SD version 3.0
+High Capacity: Yes
+Capacity: 59.7 GiB
+Bus Width: 4-bit
+Erase Group Size: 512 Bytes
+=> 
+
+>>> mmc part
+mmc part
+
+Partition Map for MMC device 0  --   Partition Type: DOS
+
+Part	Start Sector	Num Sectors	UUID		Type
+  1	2048      	125171712 	6f2fe942-01	0c Boot
+=> 
+
+>>> fatls mmc 0:1
+fatls mmc 0:1
+       55   hello.txt
+   131072   testfile
+
+2 file(s), 0 dir(s)
+
+=> 
+
+>>> mw.l 0x200008c4 0x400003
+mw.l 0x200008c4 0x400003
+=> 
+
+>>> mw.l 0x200008c8 0x400003
+mw.l 0x200008c8 0x400003
+=> 
+
+>>> mw.l 0x200008cc 0x400003
+mw.l 0x200008cc 0x400003
+=> 
+
+>>> mw.l 0x200008d0 0x400003
+mw.l 0x200008d0 0x400003
+=> 
+
+>>> mw.l 0x200008d4 0x400017
+mw.l 0x200008d4 0x400017
+=> 
+
+>>> mw.l 0x200008d8 0x400017
+mw.l 0x200008d8 0x400017
+=> 
+
+>>> md.b 0x20060028 1
+md.b 0x20060028 1
+20060028: 06                                               .
+=> 
+
+>>> mw.b 0x20060028 0x6
+mw.b 0x20060028 0x6
+=> 

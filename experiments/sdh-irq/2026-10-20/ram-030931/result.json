@@ -1,0 +1,7 @@
+{
+  "forced_irq_handler_pass": true,
+  "cmd8_card_and_irq_pass": true,
+  "uboot_returned_zero": true,
+  "configuration_restored": true,
+  "configuration_differences": {}
+}
