@@ -6,5 +6,5 @@ src = "src"
 title = "bl808-linux"
 
 [output.html]
-additional-css = ["theme/memory-map.css"]
-additional-js = ["theme/memory-map.js"]
+additional-css = ["theme/memory-map.css", "theme/memory-map-tabs.css"]
+additional-js = ["theme/memory-map-tabs.js"]
