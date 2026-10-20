@@ -137,6 +137,14 @@ void linux_load()
     // csi_dcache_clean();
 }
 
+#if defined(CPU_D0) && defined(LOW_LOAD_RUST_D0)
+extern void d0_rust_probe(void (*print)(const char *));
+static void d0_rust_print(const char *message)
+{
+    MSG("%s", message);
+}
+#endif
+
 int main(void)
 {
     bflb_platform_init(0);
@@ -171,6 +179,9 @@ int main(void)
 
     // GLB_PER_Clock_UnGate(GLB_AHB_CLOCK_LZ4);
     MSG("C906 start...\r\n");
+#ifdef LOW_LOAD_RUST_D0
+    d0_rust_probe(d0_rust_print);
+#endif
     uint64_t start_time, stop_time;
     mtimer_init();
     MSG("mtimer clk:%d\r\n", CPU_Get_MTimer_Clock());

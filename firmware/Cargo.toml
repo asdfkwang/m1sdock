@@ -1,0 +1,10 @@
+[workspace]
+members = ["d0"]
+resolver = "2"
+
+[profile.release]
+panic = "abort"
+opt-level = "s"
+
+[profile.dev]
+panic = "abort"

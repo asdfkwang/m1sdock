@@ -214,13 +214,18 @@ function(generate_bin)
 
     target_link_libraries(${target_name}.elf m)
 
+    # Keep the isolated Rust probe out of the vendor download artifact.
+    set(DOWNLOAD_COPY_COMMAND)
+    if(NOT LOW_LOAD_RUST_D0)
+        set(DOWNLOAD_COPY_COMMAND COMMAND ${CMAKE_COMMAND} -E copy ${BIN_FILE} ${CMAKE_SOURCE_DIR}/tools/bflb_flash_tool/img/project.bin)
+    endif()
     add_custom_command(TARGET ${target_name}.elf POST_BUILD
         COMMAND ${CMAKE_OBJCOPY} -Obinary $<TARGET_FILE:${target_name}.elf> ${BIN_FILE}
         COMMAND ${CMAKE_OBJDUMP} -d -S $<TARGET_FILE:${target_name}.elf> >${ASM_FILE}
         # COMMAND ${CMAKE_OBJCOPY} -Oihex $<TARGET_FILE:${mainname}.elf> ${HEX_FILE}
         COMMAND ${SIZE} $<TARGET_FILE:${target_name}.elf>
-        COMMAND ${CMAKE_COMMAND} -E copy ${BIN_FILE} ${CMAKE_SOURCE_DIR}/tools/bflb_flash_tool/img/project.bin
-        COMMENT "Generate ${BIN_FILE}\r\nCopy ${BIN_FILE} into download path")
+        ${DOWNLOAD_COPY_COMMAND}
+        COMMENT "Generate ${BIN_FILE}")
     endforeach()
 
     save_information()
